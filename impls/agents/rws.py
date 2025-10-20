@@ -230,7 +230,7 @@ def get_config():
             tau=0.995,  # Target network EMA update rate (higher = slower update)
             
             # Reachability loss hyperparameters
-            rank_margin=-0.05,  # Margin for ranking loss
+            rank_margin=0.,  # Margin for ranking loss
             lambda_cons=1.0,  # Weight for consistency loss
             
             # Dataset hyperparameters
