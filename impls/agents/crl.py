@@ -99,6 +99,7 @@ class CRLAgent(flax.struct.PyTreeNode):
                 )
 
             return actor_loss, actor_info
+        
         elif self.config['actor_loss'] == 'ddpgbc':
             # DDPG+BC loss.
             assert not self.config['discrete']

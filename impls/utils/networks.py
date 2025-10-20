@@ -515,3 +515,138 @@ class GCIQEValue(nn.Module):
             return v, phi_s, phi_g
         else:
             return v
+
+
+class TDInfoNCECritic(nn.Module):
+    """TD-InfoNCE critic: Q(s,a,g,s_future) = phi(s,a,g)^T @ psi(s_future).
+    
+    This implements the contrastive critic from TD-InfoNCE that computes
+    logits for all pairs of (s,a,g) and future states in a batch.
+    
+    Attributes:
+        hidden_dims: Hidden layer dimensions.
+        repr_dim: Representation dimension.
+        layer_norm: Whether to apply layer normalization.
+        ensemble: Whether to use twin Q (ensemble of 2).
+        repr_norm: Whether to normalize representations to unit norm.
+        repr_norm_temp: Temperature for normalized representations.
+        gc_encoder: Optional GCEncoder for observations and goals.
+    """
+    
+    hidden_dims: Sequence[int]
+    repr_dim: int
+    layer_norm: bool = True
+    ensemble: bool = True
+    repr_norm: bool = True
+    repr_norm_temp: float = 1.0
+    gc_encoder: nn.Module = None
+    
+    def setup(self):
+        mlp_module = MLP
+        if self.ensemble:
+            # Twin Q: create 2 parallel encoders
+            mlp_module = ensemblize(mlp_module, 2)
+        
+        # phi encodes (s, a, g)
+        self.phi = mlp_module(
+            (*self.hidden_dims, self.repr_dim),
+            activate_final=False,
+            layer_norm=self.layer_norm
+        )
+        
+        # psi encodes future states
+        self.psi = mlp_module(
+            (*self.hidden_dims, self.repr_dim),
+            activate_final=False,
+            layer_norm=self.layer_norm
+        )
+    
+    def __call__(self, observations, goals, actions, future_states):
+        """Compute Q values for all pairs of (s,a,g) and future states.
+        
+        Args:
+            observations: Current observations (N, obs_dim).
+            goals: Goals (N, goal_dim).
+            actions: Actions (N, action_dim).
+            future_states: Future states (N, state_dim).
+        
+        Returns:
+            Q values of shape (N, N, 2) if ensemble else (N, N).
+            Q[i, j] represents Q(s_i, a_i, g_i, future_state_j).
+        """
+        # Encode (s, a, g)
+        if self.gc_encoder is not None:
+            sag_inputs = self.gc_encoder(observations, goals)
+        else:
+            sag_inputs = jnp.concatenate([observations, goals], axis=-1)
+        sag_inputs = jnp.concatenate([sag_inputs, actions], axis=-1)
+        
+        phi = self.phi(sag_inputs)  # (N, repr_dim) or (2, N, repr_dim) if ensemble
+        
+        # Encode future states
+        psi = self.psi(future_states)  # (N, repr_dim) or (2, N, repr_dim) if ensemble
+        
+        # Normalize representations
+        if self.repr_norm:
+            phi = phi / (jnp.linalg.norm(phi, axis=-1, keepdims=True) + 1e-8)
+            psi = psi / (jnp.linalg.norm(psi, axis=-1, keepdims=True) + 1e-8)
+            phi = phi / self.repr_norm_temp
+        
+        # Compute pairwise inner products: Q[i,j] = phi[i]^T @ psi[j]
+        if self.ensemble:
+            # phi: (2, N, D), psi: (2, N, D)
+            # Output: (N, N, 2)
+            q = jnp.einsum('eik,ejk->ije', phi, psi)
+        else:
+            # phi: (N, D), psi: (N, D)
+            # Output: (N, N)
+            q = jnp.einsum('ik,jk->ij', phi, psi)
+        
+        return q
+
+
+
+
+class GCReachability(nn.Module):
+    """Goal-conditioned reachability estimator.
+    
+    Computes r(s, g) ∈ [0, 1] indicating the probability that goal g 
+    is reachable from state s.
+    
+    Attributes:
+        hidden_dims: Hidden layer dimensions.
+        layer_norm: Whether to apply layer normalization.
+        gc_encoder: Optional GCEncoder module to encode the inputs.
+    """
+    hidden_dims: Sequence[int]
+    layer_norm: bool = True
+    gc_encoder: nn.Module = None
+    
+    @nn.compact
+    def __call__(self, observations, goals, goal_encoded=False):
+        """Return reachability score.
+        
+        Args:
+            observations: Observations/states.
+            goals: Goals.
+            goal_encoded: Whether goals are already encoded (unused for reachability).
+        
+        Returns:
+            reachability: [..., 1] reachability scores in [0, 1]
+        """
+        # Concatenate state and goal
+        if self.gc_encoder is not None:
+            x = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+        else:
+            x = jnp.concatenate([observations, goals], axis=-1)
+        
+        # MLP layers with ReLU activation (matching reachability_estimator_jax.py)
+        for hidden_dim in self.hidden_dims:
+            x = nn.Dense(hidden_dim, kernel_init=default_init())(x)
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
+        
+        # Output layer with sigmoid
+        logits = nn.Dense(1, kernel_init=default_init())(x)
+        return nn.sigmoid(logits)
