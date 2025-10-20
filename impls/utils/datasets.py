@@ -4,6 +4,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import jax
 import jax.numpy as jnp
 import numpy as np
+from pathlib import Path
+
 from flax.core.frozen_dict import FrozenDict
 
 
@@ -80,6 +82,60 @@ class Dataset(FrozenDict):
         if 'next_observations' not in result:
             result['next_observations'] = self._dict['observations'][np.minimum(idxs + 1, self.size - 1)]
         return result
+
+
+
+def dataset_dict_to_trajectories(dataset: Dict[str, np.ndarray]) -> List[np.ndarray]:
+    required_keys = {"observations", "next_observations"}
+    missing = required_keys.difference(dataset.keys())
+    if missing:
+        raise KeyError(f"Dataset dictionary is missing keys: {missing}")
+
+    obs = np.asarray(dataset["observations"], dtype=np.float32)
+    next_obs = np.asarray(dataset["next_observations"], dtype=np.float32)
+    n_steps = obs.shape[0]
+
+    if next_obs.shape[0] != n_steps:
+        raise ValueError("observations and next_observations must have the same length.")
+
+    terminals = dataset.get("terminals")
+    if terminals is None:
+        terminals = dataset.get("dones")
+    if terminals is None:
+        terminals = np.zeros(n_steps, dtype=bool)
+    else:
+        terminals = np.asarray(terminals, dtype=bool)
+
+    timeouts = dataset.get("timeouts")
+    if timeouts is None:
+        timeouts = np.zeros(n_steps, dtype=bool)
+    else:
+        timeouts = np.asarray(timeouts, dtype=bool)
+
+    trajectories: List[np.ndarray] = []
+    episode_start = 0
+
+    for idx in range(n_steps):
+        done = bool(terminals[idx]) or bool(timeouts[idx])
+        if done:
+            states = obs[episode_start : idx + 1]
+            final_state = next_obs[idx : idx + 1]
+            traj = np.concatenate([states, final_state], axis=0)
+            if traj.shape[0] >= 2:
+                trajectories.append(traj.astype(np.float32))
+            episode_start = idx + 1
+
+    if episode_start < n_steps:
+        states = obs[episode_start:]
+        final_state = next_obs[-1:]
+        traj = np.concatenate([states, final_state], axis=0)
+        if traj.shape[0] >= 2:
+            trajectories.append(traj.astype(np.float32))
+
+    if not trajectories:
+        raise ValueError("No trajectories could be reconstructed from dataset.")
+
+    return trajectories
 
 
 

@@ -174,7 +174,6 @@ def train_step(
     lambda_cons: float,
     lambda_goal: float,
     lambda_mass: float,
-    epsilon: float,
 ) -> Tuple[TrainState, Dict[str, float]]:
     """Single training step (JIT compiled)."""
     
@@ -437,7 +436,7 @@ def train_reachability(
         model,
         lr,
         dataset.state_dim,
-        dataset.goal_dim,
+        2
     )
     
     total_transitions = len(dataset)
@@ -475,7 +474,6 @@ def train_reachability(
                 lambda_cons,
                 lambda_goal,
                 lambda_mass,
-                dataset.epsilon,
             )
             
             # Accumulate metrics
@@ -526,9 +524,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--compact-ogbench", action="store_true")
     parser.add_argument("--maze-buffer", type=str, default="env/A_star_buffer.pkl")
 
-    parser.add_argument("--goal-dim", type=int, default=2)
-    parser.add_argument("--goal-threshold", type=float, default=None)
-    parser.add_argument("--epsilon-multiplier", type=float, default=2.0)
     parser.add_argument("--hidden-dims", type=int, nargs="+", default=[256, 256, 256])
 
     parser.add_argument("--epochs", type=int, default=50)
@@ -609,7 +604,6 @@ def main() -> None:
         "num_goals_per_state": args.num_goals_per_state,
         "max_skip_horizon": args.max_skip_horizon,
         "num_skip_states": args.num_skip_states,
-        "epsilon": dataset.epsilon,
         "viz_samples": args.viz_samples,
     }, indent=2))
 

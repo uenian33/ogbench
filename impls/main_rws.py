@@ -5,14 +5,14 @@ import time
 from pathlib import Path
 
 import jax
+import jax.numpy as jnp
 import numpy as np
 import tqdm
 import wandb
 from absl import app, flags
 from agents import agents
 from ml_collections import config_flags
-from utils.datasets import Dataset, ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
-from utils.env_utils import make_env_and_datasets
+from utils.datasets import ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
 from utils.flax_utils import restore_agent, save_agent
 from utils.log_utils import CsvLogger, get_exp_name, get_flag_dict, setup_wandb
 
@@ -29,6 +29,12 @@ flags.DEFINE_integer('train_steps', 100000, 'Number of training steps.')
 flags.DEFINE_integer('log_interval', 1000, 'Logging interval.')
 flags.DEFINE_integer('viz_interval', 10000, 'Visualization interval.')
 flags.DEFINE_integer('save_interval', 100000, 'Saving interval.')
+
+flags.DEFINE_string('dataset_type', "ogbench", 'dataset type.')
+flags.DEFINE_string('dataset_name', "antmaze-teleport-stitch-v0", 'dataset type.')
+flags.DEFINE_string('dataset_split', 'train', 'Dataset split to load when using ogbench datasets.')
+flags.DEFINE_bool('compact_ogbench', True, 'Load compact ogbench datasets (observations only).')
+flags.DEFINE_string('maze_buffer', None, 'Path to offline maze replay buffer (pickle).')
 
 flags.DEFINE_integer('num_goals_per_state', 4, 'Number of goals per state.')
 flags.DEFINE_integer('max_skip_horizon', None, '`Maximum skip horizon for RWS.')
@@ -202,45 +208,73 @@ def main(_):
     with open(os.path.join(FLAGS.save_dir, 'flags.json'), 'w') as f:
         json.dump(flag_dict, f)
     
-    # Setup environment and dataset
     config = FLAGS.agent
-    env, train_dataset, val_dataset = make_env_and_datasets(
-        FLAGS.env_name, 
-        frame_stack=config.get('frame_stack')
-    )
-    
-    # Create RWS datasets
-    # Load dataset
-    if args.dataset_type == "ogbench":
-        if not args.dataset_name:
-            raise ValueError("--dataset-name must be provided for dataset-type 'ogbench'.")
-        print(f"Loading OGBench dataset: {args.dataset_name} ({args.dataset_split})")
+    dataset_type = (FLAGS.dataset_type or '').lower()
+    train_dataset = None
+    val_dataset = None
+    viz_env_name = FLAGS.env_name
+
+    if dataset_type == 'ogbench':
+        dataset_name = FLAGS.dataset_name or FLAGS.env_name
+        if not dataset_name:
+            raise ValueError("--dataset_name or --env_name must be provided for dataset_type='ogbench'.")
+
+        print(f"Loading OGBench dataset: {dataset_name} ({FLAGS.dataset_split})")
         trajectories = load_ogbench_trajectories(
-            args.dataset_name,
-            split=args.dataset_split,
-            compact_dataset=args.compact_ogbench,
+            dataset_name,
+            split=FLAGS.dataset_split,
+            compact_dataset=FLAGS.compact_ogbench,
         )
-    else:
-        buffer_path = Path(args.maze_buffer)
+        train_dataset = ReachabilityGCDataset(
+            trajectories=trajectories,
+            config=config,
+        )
+        viz_env_name = dataset_name
+
+        # Try to build a validation dataset if a validation split exists.
+        if FLAGS.dataset_split.lower() != 'val':
+            try:
+                val_trajs = load_ogbench_trajectories(
+                    dataset_name,
+                    split='val',
+                    compact_dataset=FLAGS.compact_ogbench,
+                )
+            except ValueError:
+                val_trajs = None
+            if val_trajs:
+                val_dataset = ReachabilityGCDataset(
+                    trajectories=val_trajs,
+                    config=config,
+                )
+    elif dataset_type == 'maze':
+        if not FLAGS.maze_buffer:
+            raise ValueError("--maze_buffer must be provided for dataset_type='maze'.")
+        buffer_path = Path(FLAGS.maze_buffer)
+        if not buffer_path.exists():
+            raise FileNotFoundError(f"Maze buffer not found at {buffer_path}.")
         print(f"Loading maze buffer from {buffer_path}")
         trajectories = load_maze_trajectories(buffer_path)
-
-    # Create ReachabilityGCDataset using dataclass initialization
-    train_dataset = ReachabilityGCDataset(
-        trajectories=trajectories,
-    )
-
-    train_dataset = ReachabilityGCDataset(Dataset.create(**train_dataset), config)
-    if val_dataset is not None:
-        val_dataset = ReachabilityGCDataset(Dataset.create(**val_dataset), config)
+        train_dataset = ReachabilityGCDataset(
+            trajectories=trajectories,
+            config=config,
+        )
+        if not viz_env_name:
+            viz_env_name = buffer_path.stem
+    else:
+        raise ValueError(f"Unsupported dataset_type '{FLAGS.dataset_type}'. Expected 'ogbench' or 'maze'.")
     
     # Initialize agent
     random.seed(FLAGS.seed)
     np.random.seed(FLAGS.seed)
     
-    example_batch = train_dataset.sample(1)
-    example_observations = example_batch['states']
-    example_goals = example_batch['positive_goals']
+    example_reachability = train_dataset.sample_batch(
+        batch_size=1,
+        num_goals_per_state=FLAGS.num_goals_per_state,
+        max_skip_horizon=FLAGS.max_skip_horizon,
+        num_skip_states=FLAGS.num_skip_states,
+    )['reachability']
+    example_observations = example_reachability['states']
+    example_goals = example_reachability['positive_goals']
     
     agent_class = agents[config['agent_name']]
     agent = agent_class.create(
@@ -321,7 +355,7 @@ def main(_):
                 dataset=train_dataset,
                 epoch=i,
                 save_dir=viz_dir,
-                env_name=FLAGS.env_name,
+                env_name=viz_env_name,
                 num_viz_points=FLAGS.num_viz_points,
                 num_anchors=FLAGS.num_viz_anchors,
             )
