@@ -5,6 +5,7 @@ import flax
 import jax
 import jax.numpy as jnp
 import ml_collections
+import numpy as np
 import optax
 from utils.encoders import GCEncoder, encoder_modules
 from utils.flax_utils import ModuleDict, TrainState, nonpytree_field
@@ -28,7 +29,9 @@ class RWSAgent(flax.struct.PyTreeNode):
         pos_goals = batch["positive_goals"]  # [B, goal_dim]
         unl_goals = batch["unlabeled_goals"]  # [B, K, goal_dim]
         self_goals = batch["self_goals"]  # [B, goal_dim]
-        
+        rank_margin = -0.05
+        lambda_cons = 1
+
         B, M, state_dim = skip_states.shape
         K = unl_goals.shape[1]
         
@@ -100,7 +103,7 @@ class RWSAgent(flax.struct.PyTreeNode):
         info = {}
 
         rws_loss, rws_info = self.reach_loss(batch, grad_params)
-        for k, v in critirws_infoc_info.items():
+        for k, v in rws_info.items():
             info[f'rws/{k}'] = v
 
         loss = rws_loss
@@ -127,6 +130,13 @@ class RWSAgent(flax.struct.PyTreeNode):
         self.target_update(new_network, 'value')
 
         return self.replace(network=new_network, rng=new_rng), info
+
+    def predict_reachability(self, states, goals, use_target: bool = False):
+        """Return reachability scores in numpy format for visualization/evaluation."""
+        module_name = 'target_value' if use_target else 'value'
+        value_fn = self.network.select(module_name)
+        preds = value_fn(jnp.asarray(states), jnp.asarray(goals))
+        return np.asarray(preds)
 
     @classmethod
     def create(
@@ -206,6 +216,10 @@ def get_config():
             value_p_trajgoal=1,  # Probability of using a future state in the same trajectory as the value goal.
             value_p_randomgoal=0.,  # Probability of using a random state as the value goal.
             value_geom_sample=True,  # Whether to use geometric sampling for future value goals.
+            actor_p_curgoal=0.0,  # Probability of using the current state as the actor goal.
+            actor_p_trajgoal=1.0,  # Probability of using a future state in the same trajectory as the actor goal.
+            actor_p_randomgoal=0.0,  # Probability of using a random state as the actor goal.
+            actor_geom_sample=False,  # Whether to use geometric sampling for actor goals.
             gc_negative=True,  # Whether to use '0 if s == g else -1' (True) or '1 if s == g else 0' (False) as reward.
             p_aug=0.0,  # Probability of applying image augmentation.
             frame_stack=ml_collections.config_dict.placeholder(int),  # Number of frames to stack.

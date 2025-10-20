@@ -15,6 +15,7 @@ from ml_collections import config_flags
 from utils.datasets import ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
 from utils.flax_utils import restore_agent, save_agent
 from utils.log_utils import CsvLogger, get_exp_name, get_flag_dict, setup_wandb
+from jax import device_put
 
 FLAGS = flags.FLAGS
 
@@ -44,6 +45,15 @@ flags.DEFINE_integer('num_viz_anchors', 9, 'Number of anchor states for visualiz
 flags.DEFINE_integer('num_viz_points', 5000, 'Number of points to visualize.')
 
 config_flags.DEFINE_config_file('agent', 'agents/rws.py', lock_config=False)
+
+
+def _prepare_reachability_batch(batch_np):
+    """Move the reachability batch to device and drop unused keys."""
+    return {
+        k: device_put(v)
+        for k, v in batch_np.items()
+        if k in ("states", "skip_states", "positive_goals", "unlabeled_goals", "self_goals")
+    }
 
 
 def visualize_reachability(
@@ -79,8 +89,11 @@ def visualize_reachability(
     else:
         sampled_states = all_states
     
-    # Extract goals from sampled states
-    sampled_goals = dataset.phi(sampled_states)
+    # Extract goals from sampled states (fallback to identity if no phi provided)
+    if hasattr(dataset, 'phi'):
+        sampled_goals = dataset.phi(sampled_states)
+    else:
+        sampled_goals = sampled_states
     
     # Determine visualization coordinates
     if is_maze:
@@ -127,16 +140,9 @@ def visualize_reachability(
         # Compute reachability for all sampled goals from this anchor
         anchor_batch = np.tile(anchor_state[None, :], (sampled_goals.shape[0], 1))
         
-        # Batch evaluation
-        batch_size = 1024
-        reachability_scores = []
-        for i in range(0, sampled_goals.shape[0], batch_size):
-            batch_anchors = jax.device_put(anchor_batch[i:i + batch_size])
-            batch_goals = jax.device_put(sampled_goals[i:i + batch_size])
-            scores = agent.predict_reachability(batch_anchors, batch_goals)
-            reachability_scores.append(np.array(scores).reshape(-1))
-        
-        reachability_scores = np.concatenate(reachability_scores)
+        # Batch evaluation (single device call)
+        reachability_scores = agent.predict_reachability(anchor_batch, sampled_goals)
+        reachability_scores = np.asarray(reachability_scores).reshape(-1)
         
         # Plot reachability landscape
         scatter = ax.scatter(
@@ -307,11 +313,8 @@ def main(_):
         # Extract reachability batch
         batch_np = batch_dict['reachability']
 
-        # Convert to JAX arrays
-        batch = {
-            k: jnp.array(v) for k, v in batch_np.items()
-            if k in ["states", "skip_states", "positive_goals", "unlabeled_goals", "self_goals"]
-        }
+        # Convert to device arrays
+        batch = _prepare_reachability_batch(batch_np)
         
         agent, update_info = agent.update(batch)
         
@@ -320,8 +323,6 @@ def main(_):
             train_metrics = {f'training/{k}': v for k, v in update_info.items()}
             
             if val_dataset is not None:
-                val_batch = val_dataset.sample(config['batch_size'])
-
                 val_batch_dict = val_dataset.sample_batch(
                     config['batch_size'], 
                     num_goals_per_state=FLAGS.num_goals_per_state,
@@ -332,11 +333,8 @@ def main(_):
                 # Extract reachability batch
                 val_batch_np = val_batch_dict['reachability']
 
-                # Convert to JAX arrays
-                val_batch = {
-                    k: jnp.array(v) for k, v in val_batch_np.items()
-                    if k in ["states", "skip_states", "positive_goals", "unlabeled_goals", "self_goals"]
-                }
+                # Convert to device arrays
+                val_batch = _prepare_reachability_batch(val_batch_np)
                 
                 _, val_info = agent.total_loss(val_batch, grad_params=None)
                 train_metrics.update({f'validation/{k}': v for k, v in val_info.items()})
