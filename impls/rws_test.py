@@ -42,21 +42,14 @@ def ensure_dir(path: Path) -> None:
 
 
 def dataset_dict_to_trajectories(dataset: Dict[str, np.ndarray]) -> List[np.ndarray]:
-    required_keys = {"observations", "next_observations"}
-    missing = required_keys.difference(dataset.keys())
-    if missing:
-        raise KeyError(f"Dataset dictionary is missing keys: {missing}")
+    """Convert dataset dictionary (regular or compact) to trajectory list."""
+    if "observations" not in dataset:
+        raise KeyError("Dataset dictionary must contain 'observations'.")
 
     obs = np.asarray(dataset["observations"], dtype=np.float32)
-    next_obs = np.asarray(dataset["next_observations"], dtype=np.float32)
     n_steps = obs.shape[0]
 
-    if next_obs.shape[0] != n_steps:
-        raise ValueError("observations and next_observations must have the same length.")
-
-    terminals = dataset.get("terminals")
-    if terminals is None:
-        terminals = dataset.get("dones")
+    terminals = dataset.get("terminals") or dataset.get("dones")
     if terminals is None:
         terminals = np.zeros(n_steps, dtype=bool)
     else:
@@ -68,28 +61,58 @@ def dataset_dict_to_trajectories(dataset: Dict[str, np.ndarray]) -> List[np.ndar
     else:
         timeouts = np.asarray(timeouts, dtype=bool)
 
-    trajectories: List[np.ndarray] = []
-    episode_start = 0
+    if "next_observations" in dataset:
+        next_obs = np.asarray(dataset["next_observations"], dtype=np.float32)
+        if next_obs.shape[0] != n_steps:
+            raise ValueError("observations and next_observations must have the same length.")
 
-    for idx in range(n_steps):
-        done = bool(terminals[idx]) or bool(timeouts[idx])
-        if done:
-            states = obs[episode_start : idx + 1]
-            final_state = next_obs[idx : idx + 1]
+        trajectories: List[np.ndarray] = []
+        episode_start = 0
+
+        for idx in range(n_steps):
+            done = bool(terminals[idx]) or bool(timeouts[idx])
+            if done:
+                states = obs[episode_start : idx + 1]
+                final_state = next_obs[idx : idx + 1]
+                traj = np.concatenate([states, final_state], axis=0)
+                if traj.shape[0] >= 2:
+                    trajectories.append(traj.astype(np.float32))
+                episode_start = idx + 1
+
+        if episode_start < n_steps:
+            states = obs[episode_start:]
+            final_state = next_obs[-1:]
             traj = np.concatenate([states, final_state], axis=0)
             if traj.shape[0] >= 2:
                 trajectories.append(traj.astype(np.float32))
-            episode_start = idx + 1
 
-    if episode_start < n_steps:
-        states = obs[episode_start:]
-        final_state = next_obs[-1:]
-        traj = np.concatenate([states, final_state], axis=0)
-        if traj.shape[0] >= 2:
-            trajectories.append(traj.astype(np.float32))
+        if not trajectories:
+            raise ValueError("No trajectories could be reconstructed from dataset.")
+
+        return trajectories
+
+    valids = dataset.get("valids")
+    if valids is None:
+        raise KeyError("Compact dataset must include 'valids' when 'next_observations' is absent.")
+    valids = np.asarray(valids, dtype=bool)
+    if valids.shape[0] != n_steps:
+        raise ValueError("'valids' must have the same length as 'observations'.")
+
+    trajectories: List[np.ndarray] = []
+    current: List[np.ndarray] = []
+    for idx in range(n_steps):
+        current.append(obs[idx])
+        done = (not bool(valids[idx])) or bool(terminals[idx]) or bool(timeouts[idx])
+        if done:
+            if len(current) >= 2:
+                trajectories.append(np.stack(current, axis=0).astype(np.float32))
+            current = []
+
+    if current and len(current) >= 2:
+        trajectories.append(np.stack(current, axis=0).astype(np.float32))
 
     if not trajectories:
-        raise ValueError("No trajectories could be reconstructed from dataset.")
+        raise ValueError("No trajectories could be reconstructed from compact dataset.")
 
     return trajectories
 
