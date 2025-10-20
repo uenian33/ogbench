@@ -22,7 +22,7 @@ from flax.training import train_state
 from tqdm import tqdm
 
 # Import from datasets.py
-from utils.datasets import ReachabilityGCDataset
+from utils.datasets import ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
 
 
 def set_seed(seed: int) -> None:
@@ -94,46 +94,6 @@ def dataset_dict_to_trajectories(dataset: Dict[str, np.ndarray]) -> List[np.ndar
     return trajectories
 
 
-def load_ogbench_trajectories(
-    dataset_name: str,
-    split: str = "train",
-    compact_dataset: bool = False,
-) -> List[np.ndarray]:
-    try:
-        import ogbench
-    except ImportError as exc:
-        raise ImportError(
-            "ogbench is required for --dataset-type ogbench. Install with `pip install ogbench`."
-        ) from exc
-
-    env, train_dataset, val_dataset = ogbench.make_env_and_datasets(
-        dataset_name,
-        compact_dataset=compact_dataset,
-    )
-    _ = env
-    dataset = train_dataset if split == "train" else val_dataset
-    if dataset is None:
-        raise ValueError(f"Unable to load OGBench dataset split '{split}'.")
-    return dataset_dict_to_trajectories(dataset)
-
-
-def load_maze_trajectories(buffer_path: Path) -> List[np.ndarray]:
-    import pickle
-
-    with open(buffer_path, "rb") as handle:
-        data = pickle.load(handle)
-
-    if "o" not in data:
-        raise KeyError(f"Expected key 'o' in maze buffer at {buffer_path}.")
-
-    obs = np.asarray(data["o"], dtype=np.float32)
-    if obs.ndim != 3:
-        raise ValueError(f"'o' tensor must have shape (num_traj, horizon, obs_dim), got {obs.shape}.")
-
-    trajectories = [traj for traj in obs if traj.shape[0] >= 2]
-    if not trajectories:
-        raise ValueError("Maze buffer does not contain any valid trajectories.")
-    return trajectories
 
 
 class ReachabilityNet(nn.Module):
@@ -621,9 +581,6 @@ def main() -> None:
     # Create ReachabilityGCDataset using dataclass initialization
     dataset = ReachabilityGCDataset(
         trajectories=trajectories,
-        goal_dim=args.goal_dim,
-        epsilon=args.goal_threshold,
-        epsilon_multiplier=args.epsilon_multiplier,
     )
 
     print(f"Using JAX backend with ReachabilityGCDataset (fully vectorized)")

@@ -11,7 +11,7 @@ import wandb
 from absl import app, flags
 from agents import agents
 from ml_collections import config_flags
-from utils.datasets import Dataset, RWSDataset
+from utils.datasets import Dataset, ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
 from utils.env_utils import make_env_and_datasets
 from utils.flax_utils import restore_agent, save_agent
 from utils.log_utils import CsvLogger, get_exp_name, get_flag_dict, setup_wandb
@@ -29,6 +29,10 @@ flags.DEFINE_integer('train_steps', 100000, 'Number of training steps.')
 flags.DEFINE_integer('log_interval', 1000, 'Logging interval.')
 flags.DEFINE_integer('viz_interval', 10000, 'Visualization interval.')
 flags.DEFINE_integer('save_interval', 100000, 'Saving interval.')
+
+flags.DEFINE_integer('num_goals_per_state', 4, 'Number of goals per state.')
+flags.DEFINE_integer('max_skip_horizon', None, '`Maximum skip horizon for RWS.')
+flags.DEFINE_integer('num_skip_states', 10, '`Number of intermediate states for RWS.')
 
 flags.DEFINE_integer('num_viz_anchors', 9, 'Number of anchor states for visualization.')
 flags.DEFINE_integer('num_viz_points', 5000, 'Number of points to visualize.')
@@ -205,9 +209,30 @@ def main(_):
         frame_stack=config.get('frame_stack')
     )
     
-    train_dataset = RWSDataset(Dataset.create(**train_dataset), config)
+    # Create RWS datasets
+    # Load dataset
+    if args.dataset_type == "ogbench":
+        if not args.dataset_name:
+            raise ValueError("--dataset-name must be provided for dataset-type 'ogbench'.")
+        print(f"Loading OGBench dataset: {args.dataset_name} ({args.dataset_split})")
+        trajectories = load_ogbench_trajectories(
+            args.dataset_name,
+            split=args.dataset_split,
+            compact_dataset=args.compact_ogbench,
+        )
+    else:
+        buffer_path = Path(args.maze_buffer)
+        print(f"Loading maze buffer from {buffer_path}")
+        trajectories = load_maze_trajectories(buffer_path)
+
+    # Create ReachabilityGCDataset using dataclass initialization
+    train_dataset = ReachabilityGCDataset(
+        trajectories=trajectories,
+    )
+
+    train_dataset = ReachabilityGCDataset(Dataset.create(**train_dataset), config)
     if val_dataset is not None:
-        val_dataset = RWSDataset(Dataset.create(**val_dataset), config)
+        val_dataset = ReachabilityGCDataset(Dataset.create(**val_dataset), config)
     
     # Initialize agent
     random.seed(FLAGS.seed)
@@ -238,7 +263,22 @@ def main(_):
     
     for i in tqdm.tqdm(range(1, FLAGS.train_steps + 1), smoothing=0.1, dynamic_ncols=True):
         # Update agent
-        batch = train_dataset.sample(config['batch_size'])
+        batch_dict = train_dataset.sample_batch(
+            config['batch_size'], 
+            num_goals_per_state=FLAGS.num_goals_per_state,
+            max_skip_horizon=FLAGS.max_skip_horizon,
+            num_skip_states=FLAGS.num_skip_states,
+        )
+
+        # Extract reachability batch
+        batch_np = batch_dict['reachability']
+
+        # Convert to JAX arrays
+        batch = {
+            k: jnp.array(v) for k, v in batch_np.items()
+            if k in ["states", "skip_states", "positive_goals", "unlabeled_goals", "self_goals"]
+        }
+        
         agent, update_info = agent.update(batch)
         
         # Log metrics
@@ -247,6 +287,23 @@ def main(_):
             
             if val_dataset is not None:
                 val_batch = val_dataset.sample(config['batch_size'])
+
+                val_batch_dict = val_dataset.sample_batch(
+                    config['batch_size'], 
+                    num_goals_per_state=FLAGS.num_goals_per_state,
+                    max_skip_horizon=FLAGS.max_skip_horizon,
+                    num_skip_states=FLAGS.num_skip_states,
+                )
+
+                # Extract reachability batch
+                val_batch_np = val_batch_dict['reachability']
+
+                # Convert to JAX arrays
+                val_batch = {
+                    k: jnp.array(v) for k, v in val_batch_np.items()
+                    if k in ["states", "skip_states", "positive_goals", "unlabeled_goals", "self_goals"]
+                }
+                
                 _, val_info = agent.total_loss(val_batch, grad_params=None)
                 train_metrics.update({f'validation/{k}': v for k, v in val_info.items()})
             

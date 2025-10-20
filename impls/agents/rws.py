@@ -8,7 +8,7 @@ import ml_collections
 import optax
 from utils.encoders import GCEncoder, encoder_modules
 from utils.flax_utils import ModuleDict, TrainState, nonpytree_field
-from utils.networks import GCDiscreteCritic, GCValue
+from utils.networks import RWSValue
 
 
 class RWSAgent(flax.struct.PyTreeNode):
@@ -21,44 +21,7 @@ class RWSAgent(flax.struct.PyTreeNode):
     network: Any
     config: Any = nonpytree_field()
 
-    @staticmethod
-    def expectile_loss(adv, diff, expectile):
-        """Compute the expectile loss."""
-        weight = jnp.where(adv >= 0, expectile, (1 - expectile))
-        return weight * (diff**2)
-
-    def value_loss(self, batch, grad_params):
-        """Compute the IQL value loss."""
-        q1, q2 = self.network.select('target_critic')(batch['observations'], batch['value_goals'], batch['actions'])
-        q = jnp.minimum(q1, q2)
-        v = self.network.select('value')(batch['observations'], batch['value_goals'], params=grad_params)
-        value_loss = self.expectile_loss(q - v, q - v, self.config['expectile']).mean()
-
-        return value_loss, {
-            'value_loss': value_loss,
-            'v_mean': v.mean(),
-            'v_max': v.max(),
-            'v_min': v.min(),
-        }
-
-    def critic_loss(self, batch, grad_params):
-        """Compute the IQL critic loss."""
-        next_v = self.network.select('value')(batch['next_observations'], batch['value_goals'])
-        q = batch['rewards'] + self.config['discount'] * batch['masks'] * next_v
-
-        q1, q2 = self.network.select('critic')(
-            batch['observations'], batch['value_goals'], batch['actions'], params=grad_params
-        )
-        critic_loss = ((q1 - q) ** 2 + (q2 - q) ** 2).mean()
-
-        return critic_loss, {
-            'critic_loss': critic_loss,
-            'q_mean': q.mean(),
-            'q_max': q.max(),
-            'q_min': q.min(),
-        }
-
-
+    @jax.jit
     def reach_loss(self, batch, grad_params):
         states = batch["states"]  # [B, state_dim]
         skip_states = batch["skip_states"]  # [B, M, state_dim]
@@ -70,14 +33,15 @@ class RWSAgent(flax.struct.PyTreeNode):
         K = unl_goals.shape[1]
         
         # === 1. PU-RANK LOSS ===
-        pred_pos = state.apply_fn(params, states, pos_goals)  # [B, 1]
+        pred_pos = self.network.select('value')(states, pos_goals, params=grad_params)
         
         # Compute predictions for all K unlabeled goals
         states_expanded = jnp.expand_dims(states, 1)  # [B, 1, state_dim]
         states_expanded = jnp.tile(states_expanded, (1, K, 1))  # [B, K, state_dim]
         unl_goals_flat = unl_goals.reshape(B * K, -1)
         states_flat = states_expanded.reshape(B * K, -1)
-        pred_unl = state.apply_fn(params, states_flat, unl_goals_flat).reshape(B, K)
+        #pred_unl = state.apply_fn(params, states_flat, unl_goals_flat).reshape(B, K)
+        pred_unl = self.network.select('value')(states_flat, unl_goals_flat, params=grad_params).reshape(B, K)
         
         # Ranking loss
         rank_logits = pred_pos - pred_unl.mean(axis=1, keepdims=True) - rank_margin
@@ -91,7 +55,8 @@ class RWSAgent(flax.struct.PyTreeNode):
         pos_goals_expanded = pos_goals_expanded.reshape(B * M, -1)
         
         # Use target network (no gradients)
-        target_pos_all = state.apply_fn(state.target_params, skip_states_flat, pos_goals_expanded)
+        #target_pos_all = state.apply_fn(state.target_params, skip_states_flat, pos_goals_expanded)
+        target_pos_all = self.network.select('target_value')(skip_states_flat, pos_goals_expanded)
         target_pos_all = target_pos_all.reshape(B, M)
         target_pos_max = jnp.max(target_pos_all, axis=1, keepdims=True)  # [B, 1]
         
@@ -107,7 +72,8 @@ class RWSAgent(flax.struct.PyTreeNode):
         unl_goals_expanded = jnp.tile(unl_goals_expanded, (1, M, 1, 1))  # [B, M, K, goal_dim]
         unl_goals_expanded = unl_goals_expanded.reshape(B * M * K, -1)
         
-        target_unl_all = state.apply_fn(state.target_params, skip_states_expanded_unl, unl_goals_expanded)
+        #target_unl_all = state.apply_fn(state.target_params, skip_states_expanded_unl, unl_goals_expanded)
+        target_unl_all = self.network.select('target_value')(skip_states_expanded_unl, unl_goals_expanded)
         target_unl_all = target_unl_all.reshape(B, M, K)
         target_unl_max = jnp.max(target_unl_all, axis=1)  # [B, K]
         
@@ -133,15 +99,11 @@ class RWSAgent(flax.struct.PyTreeNode):
         """Compute the total loss."""
         info = {}
 
-        value_loss, value_info = self.value_loss(batch, grad_params)
-        for k, v in value_info.items():
-            info[f'value/{k}'] = v
+        rws_loss, rws_info = self.reach_loss(batch, grad_params)
+        for k, v in critirws_infoc_info.items():
+            info[f'rws/{k}'] = v
 
-        critic_loss, critic_info = self.critic_loss(batch, grad_params)
-        for k, v in critic_info.items():
-            info[f'critic/{k}'] = v
-
-        loss = value_loss + critic_loss
+        loss = rws_loss
         return loss, info
 
     def target_update(self, network, module_name):
@@ -162,7 +124,7 @@ class RWSAgent(flax.struct.PyTreeNode):
             return self.total_loss(batch, grad_params, rng=rng)
 
         new_network, info = self.network.apply_loss_fn(loss_fn=loss_fn)
-        self.target_update(new_network, 'critic')
+        self.target_update(new_network, 'value')
 
         return self.replace(network=new_network, rng=new_rng), info
 
@@ -196,36 +158,19 @@ class RWSAgent(flax.struct.PyTreeNode):
         if config['encoder'] is not None:
             encoder_module = encoder_modules[config['encoder']]
             encoders['value'] = GCEncoder(concat_encoder=encoder_module())
-            encoders['critic'] = GCEncoder(concat_encoder=encoder_module())
-
-        # Define value and critic networks.
-        value_def = GCValue(
+          
+        # Define value networks.
+        value_def = RWSValue(
             hidden_dims=config['value_hidden_dims'],
             layer_norm=config['layer_norm'],
             ensemble=False,
             gc_encoder=encoders.get('value'),
         )
 
-        if config['discrete']:
-            critic_def = GCDiscreteCritic(
-                hidden_dims=config['value_hidden_dims'],
-                layer_norm=config['layer_norm'],
-                ensemble=True,
-                gc_encoder=encoders.get('critic'),
-                action_dim=action_dim,
-            )
-        else:
-            critic_def = GCValue(
-                hidden_dims=config['value_hidden_dims'],
-                layer_norm=config['layer_norm'],
-                ensemble=True,
-                gc_encoder=encoders.get('critic'),
-            )
-
+      
         network_info = dict(
             value=(value_def, (ex_observations, ex_goals)),
-            critic=(critic_def, (ex_observations, ex_goals, ex_actions)),
-            target_critic=(copy.deepcopy(critic_def), (ex_observations, ex_goals, ex_actions)),
+            target_value=(copy.deepcopy(value_def), (ex_observations, ex_goals)),
         )
         networks = {k: v[0] for k, v in network_info.items()}
         network_args = {k: v[1] for k, v in network_info.items()}
@@ -236,7 +181,7 @@ class RWSAgent(flax.struct.PyTreeNode):
         network = TrainState.create(network_def, network_params, tx=network_tx)
 
         params = network_params
-        params['modules_target_critic'] = params['modules_critic']
+        params['modules_target_value'] = params['modules_value']
 
         return cls(rng, network=network, config=flax.core.FrozenDict(**config))
 
@@ -245,7 +190,7 @@ def get_config():
     config = ml_collections.ConfigDict(
         dict(
             # Agent hyperparameters.
-            agent_name='gciql',  # Agent name.
+            agent_name='rws',  # Agent name.
             lr=3e-4,  # Learning rate.
             batch_size=1024,  # Batch size.
             value_hidden_dims=(512, 512, 512),  # Value network hidden dimensions.
@@ -256,10 +201,10 @@ def get_config():
             discrete=False,  # Whether the action space is discrete.
             encoder=ml_collections.config_dict.placeholder(str),  # Visual encoder name (None, 'impala_small', etc.).
             # Dataset hyperparameters.
-            dataset_class='GCDataset',  # Dataset class name.
-            value_p_curgoal=0.2,  # Probability of using the current state as the value goal.
-            value_p_trajgoal=0.5,  # Probability of using a future state in the same trajectory as the value goal.
-            value_p_randomgoal=0.3,  # Probability of using a random state as the value goal.
+            dataset_class='ReachabilityGCDataset',  # Dataset class name.
+            value_p_curgoal=0.,  # Probability of using the current state as the value goal.
+            value_p_trajgoal=1,  # Probability of using a future state in the same trajectory as the value goal.
+            value_p_randomgoal=0.,  # Probability of using a random state as the value goal.
             value_geom_sample=True,  # Whether to use geometric sampling for future value goals.
             gc_negative=True,  # Whether to use '0 if s == g else -1' (True) or '1 if s == g else 0' (False) as reward.
             p_aug=0.0,  # Probability of applying image augmentation.

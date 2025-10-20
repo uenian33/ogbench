@@ -82,6 +82,48 @@ class Dataset(FrozenDict):
         return result
 
 
+
+def load_ogbench_trajectories(
+    dataset_name: str,
+    split: str = "train",
+    compact_dataset: bool = False,
+) -> List[np.ndarray]:
+    try:
+        import ogbench
+    except ImportError as exc:
+        raise ImportError(
+            "ogbench is required for --dataset-type ogbench. Install with `pip install ogbench`."
+        ) from exc
+
+    env, train_dataset, val_dataset = ogbench.make_env_and_datasets(
+        dataset_name,
+        compact_dataset=compact_dataset,
+    )
+    _ = env
+    dataset = train_dataset if split == "train" else val_dataset
+    if dataset is None:
+        raise ValueError(f"Unable to load OGBench dataset split '{split}'.")
+    return dataset_dict_to_trajectories(dataset)
+
+
+def load_maze_trajectories(buffer_path: Path) -> List[np.ndarray]:
+    import pickle
+
+    with open(buffer_path, "rb") as handle:
+        data = pickle.load(handle)
+
+    if "o" not in data:
+        raise KeyError(f"Expected key 'o' in maze buffer at {buffer_path}.")
+
+    obs = np.asarray(data["o"], dtype=np.float32)
+    if obs.ndim != 3:
+        raise ValueError(f"'o' tensor must have shape (num_traj, horizon, obs_dim), got {obs.shape}.")
+
+    trajectories = [traj for traj in obs if traj.shape[0] >= 2]
+    if not trajectories:
+        raise ValueError("Maze buffer does not contain any valid trajectories.")
+    return trajectories
+
 class ReplayBuffer(Dataset):
     """Replay buffer class.
 
@@ -527,42 +569,38 @@ class TDInfoNCEDataset(GCDataset):
         return batch
 
 
-
 @dataclasses.dataclass
 class ReachabilityGCDataset(GCDataset):
     """
-    Dataset class for reachability estimator training that inherits from GCDataset.
+    Optimized dataset for reachability estimator training that inherits from GCDataset.
     Fully vectorized sampling with no for loops for maximum efficiency.
+    
+    Treats observations directly as goals (no goal_fn abstraction).
     
     Supports two initialization modes:
     1. From trajectories: ReachabilityGCDataset(trajectories=[...], ...)
     2. From Dataset object: ReachabilityGCDataset(dataset=Dataset(...), config={...}, ...)
     """
     
-    # Override parent fields - these can be passed during init or constructed in __post_init__
+    # Override parent fields
     dataset: Optional[Dataset] = None
     config: Optional[Any] = None
     preprocess_frame_stack: bool = False
     
     # Reachability-specific fields
     trajectories: Optional[Sequence[np.ndarray]] = None
-    goal_dim: int = 2
-    epsilon: Optional[float] = None
-    epsilon_multiplier: float = 2.0
-    goal_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None
     pi_data_type: str = 'gc'  # One of ['gc', 'hgc', 'td_infonce']
+    task_goals: Optional[np.ndarray] = None  # If specified, use these as self_goals
 
     def __post_init__(self):
         """Initialize the reachability dataset from trajectories or Dataset object."""
-        # Check if initialized with Dataset object (like GCDataset) or trajectories
+        # Check if initialized with Dataset object or trajectories
         if self.dataset is not None and self.trajectories is None:
-            # Mode 1: Initialized with Dataset object (standard GCDataset-style initialization)
-            # In this mode, we need to reconstruct trajectories from the dataset
+            # Mode 1: Initialized with Dataset object
             if self.config is None:
                 raise ValueError("config must be provided when initializing with a Dataset object")
             
             # Initialize parent class first
-            # We need to manually set the fields that parent __post_init__ expects
             super().__post_init__()
             
             # Reconstruct trajectories from the dataset using terminal flags
@@ -574,18 +612,16 @@ class ReachabilityGCDataset(GCDataset):
                 current_traj.append(obs)
                 
                 if self.dataset['terminals'][i]:
-                    # End of trajectory
                     trajectories.append(np.stack(current_traj, axis=0))
                     current_traj = []
             
-            # Handle case where last trajectory doesn't end with terminal
             if current_traj:
                 trajectories.append(np.stack(current_traj, axis=0))
             
             self.trajectories = trajectories
             
         elif self.trajectories is not None:
-            # Mode 2: Initialized with trajectories (original reachability dataset initialization)
+            # Mode 2: Initialized with trajectories
             if len(self.trajectories) == 0:
                 raise ValueError("At least one trajectory is required.")
             
@@ -599,14 +635,13 @@ class ReachabilityGCDataset(GCDataset):
                 if traj.ndim != 2 or traj.shape[0] < 2:
                     continue
                 
-                # Add all transitions from this trajectory
                 for i in range(traj.shape[0] - 1):
                     states_list.append(traj[i])
                     next_states_list.append(traj[i + 1])
                     terminals_list.append(i == traj.shape[0] - 2)
             
             if not states_list:
-                raise ValueError("No valid trajectories with at least two states were provided.")
+                raise ValueError("No valid trajectories with at least two states.")
             
             # Create Dataset object
             observations = np.stack(states_list, axis=0).astype(np.float32)
@@ -620,7 +655,7 @@ class ReachabilityGCDataset(GCDataset):
                 freeze=False,
             )
             
-            # Create config for GCDataset
+            # Create default config if not provided
             if self.config is None:
                 self.config = {
                     'discount': 0.99,
@@ -643,44 +678,31 @@ class ReachabilityGCDataset(GCDataset):
         else:
             raise ValueError("Either 'dataset' and 'config', or 'trajectories' must be provided")
         
-        # At this point, both self.dataset and self.trajectories should be set
-        # Store reachability-specific attributes
+        # Store trajectories and compute metadata
         self.trajectories = [np.asarray(traj, dtype=np.float32) for traj in self.trajectories if traj.shape[0] >= 2]
         self.num_trajectories = len(self.trajectories)
         self.state_dim = self.trajectories[0].shape[1]
         
-        # Get observations from dataset for reachability calculations
+        # Get observations from dataset
         observations = self.dataset['observations']
-        
-        # Handle compact datasets (no next_observations)
-        if 'next_observations' in self.dataset:
-            next_observations = self.dataset['next_observations']
-        else:
-            # Infer next_observations from observations by shifting
-            next_observations = self.dataset['observations'][np.minimum(np.arange(self.dataset.size) + 1, self.dataset.size - 1)]
-        
-        if self.goal_fn is None:
-            self._goal_fn: Callable[[np.ndarray], np.ndarray] = lambda arr: arr[..., : self.goal_dim]
-        else:
-            self._goal_fn = self.goal_fn
+        next_observations = self.dataset.get('next_observations')
+        if next_observations is None:
+            next_observations = self.dataset['observations'][
+                np.minimum(np.arange(self.dataset.size) + 1, self.dataset.size - 1)
+            ]
         
         # Build mapping from flat indices to trajectory/step indices
-        self._traj_ids: List[int] = []
-        self._step_ids: List[int] = []
+        self._traj_ids_np = np.zeros(self.dataset.size, dtype=np.int32)
+        self._step_ids_np = np.zeros(self.dataset.size, dtype=np.int32)
         
         flat_idx = 0
         for traj_id, traj in enumerate(self.trajectories):
             for step in range(traj.shape[0] - 1):
-                self._traj_ids.append(traj_id)
-                self._step_ids.append(step)
+                self._traj_ids_np[flat_idx] = traj_id
+                self._step_ids_np[flat_idx] = step
                 flat_idx += 1
         
-        self._traj_ids_np = np.asarray(self._traj_ids, dtype=np.int32)
-        self._step_ids_np = np.asarray(self._step_ids, dtype=np.int32)
-        
-        # Precompute trajectory start indices and lengths for vectorized access
-        self._traj_starts = np.array([0] + [traj.shape[0] for traj in self.trajectories], dtype=np.int32)
-        self._traj_starts = np.cumsum(self._traj_starts)
+        # Precompute trajectory metadata
         self._traj_lengths = np.array([traj.shape[0] for traj in self.trajectories], dtype=np.int32)
         
         # Create padded trajectory array for vectorized indexing
@@ -689,41 +711,29 @@ class ReachabilityGCDataset(GCDataset):
         for i, traj in enumerate(self.trajectories):
             self._padded_trajectories[i, :traj.shape[0]] = traj
         
-        # Compute single-step distance in GOAL SPACE
-        goal_curr = self.phi(observations)
-        goal_next = self.phi(next_observations)
-        single_step_distances = np.linalg.norm(goal_next - goal_curr, axis=1)
-        
-        self.max_single_step_distance = float(single_step_distances.max())
-        self.mean_single_step_distance = float(single_step_distances.mean())
-        self.median_single_step_distance = float(np.median(single_step_distances))
-        self.p95_single_step_distance = float(np.percentile(single_step_distances, 95))
-        
-        if self.epsilon is None:
-            self.epsilon = self.p95_single_step_distance * self.epsilon_multiplier
-            print(f"Auto-computed epsilon: {self.epsilon:.6f}")
-            print(f"  max_step_distance:    {self.max_single_step_distance:.6f}")
-            print(f"  p95_step_distance:    {self.p95_single_step_distance:.6f}")
-            print(f"  mean_step_distance:   {self.mean_single_step_distance:.6f}")
-            print(f"  median_step_distance: {self.median_single_step_distance:.6f}")
-        else:
-            print(f"Using provided epsilon: {self.epsilon:.6f}")
-        
-        # Precompute all states as a flat array for vectorized goal access
-        self._all_states = observations.copy()
-        self._goal_pool = self._goal_fn(self._all_states)
-        self._final_goals = np.stack([self._goal_fn(traj[-1]) for traj in self.trajectories], axis=0)
-        self._self_goals = self._goal_fn(observations)
-        self._start_states = np.stack([traj[0] for traj in self.trajectories], axis=0).astype(np.float32)
-        
+        # Precompute goal pools
         self._states_np = observations.copy()
         self._next_states_np = next_observations.copy()
         
+        # Self goals: task goals if provided, otherwise final state of each trajectory
+        if self.task_goals is not None:
+            if len(self.task_goals) != self.num_trajectories:
+                raise ValueError(f"task_goals length ({len(self.task_goals)}) must match number of trajectories ({self.num_trajectories})")
+            self._final_goals = np.asarray(self.task_goals, dtype=np.float32)
+        else:
+            self._final_goals = np.stack([traj[-1] for traj in self.trajectories], axis=0)
+        
+        # Map each state to its trajectory's final goal
+        self._self_goals = self._final_goals[self._traj_ids_np]
+        
+        # Start states for evaluation
+        self._start_states = np.stack([traj[0] for traj in self.trajectories], axis=0).astype(np.float32)
+        
+        # State bounds
         self._state_min = self._states_np.min(axis=0)
         self._state_max = self._states_np.max(axis=0)
         
-        # Create the appropriate policy dataset based on pi_data_type
-        # Make sure to handle the case where config might need subgoal_steps for HGC
+        # Create policy dataset
         if self.pi_data_type == 'gc':
             self.pi_dataset = GCDataset(
                 dataset=self.dataset,
@@ -731,7 +741,6 @@ class ReachabilityGCDataset(GCDataset):
                 preprocess_frame_stack=self.preprocess_frame_stack
             )
         elif self.pi_data_type == 'hgc':
-            # Add subgoal_steps to config if not present (default value)
             if 'subgoal_steps' not in self.config:
                 self.config['subgoal_steps'] = 10
             self.pi_dataset = HGCDataset(
@@ -755,8 +764,9 @@ class ReachabilityGCDataset(GCDataset):
     def state_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
         return self._state_min, self._state_max
 
-    def phi(self, arr: np.ndarray) -> np.ndarray:
-        return np.asarray(self._goal_fn(arr), dtype=np.float32)
+    @property
+    def start_states(self) -> np.ndarray:
+        return self._start_states
 
     def sample_batch(
         self, 
@@ -765,9 +775,16 @@ class ReachabilityGCDataset(GCDataset):
         max_skip_horizon: Optional[int] = None,
         num_skip_states: int = 1,
     ) -> Dict[str, np.ndarray]:
-        """Sample minibatch with multi-step skip consistency (fully vectorized, no for loops).
+        """Sample minibatch with multi-step skip consistency (fully vectorized).
         
-        Returns both reachability batch and policy dataset batch.
+        Args:
+            batch_size: Number of samples in the batch.
+            num_goals_per_state: Number of unlabeled goals per state.
+            max_skip_horizon: Maximum horizon for skip states (if None, use trajectory end).
+            num_skip_states: Number of skip states to sample per state.
+        
+        Returns:
+            Dictionary with 'reachability' and 'policy' batches.
         """
         # Sample random indices
         idx = np.random.randint(0, len(self), size=batch_size)
@@ -776,62 +793,60 @@ class ReachabilityGCDataset(GCDataset):
         step_ids = self._step_ids_np[idx]
         
         # === VECTORIZED SKIP STATES SAMPLING ===
-        # Get trajectory lengths for all samples: [B]
         traj_lengths = self._traj_lengths[traj_ids]
         
-        # Compute max horizons: [B]
+        # Compute max horizons for each sample
         max_horizons = traj_lengths - step_ids - 1
         if max_skip_horizon is not None:
             max_horizons = np.minimum(max_horizons, max_skip_horizon)
-        max_horizons = np.maximum(max_horizons, 1)  # Ensure at least 1
+        max_horizons = np.maximum(max_horizons, 1)
         
         # Sample random horizons: [B, M]
         random_vals = np.random.rand(batch_size, num_skip_states)
         horizons = (random_vals * max_horizons[:, None]).astype(np.int32) + 1
         horizons = np.minimum(horizons, max_horizons[:, None])
         
-        # Compute target step indices: [B, M]
+        # Compute skip step indices and gather: [B, M, state_dim]
         skip_step_indices = step_ids[:, None] + horizons
         skip_step_indices = np.minimum(skip_step_indices, (traj_lengths - 1)[:, None])
-        
-        # Vectorized gather from padded trajectories: [B, M, state_dim]
         skip_states = self._padded_trajectories[traj_ids[:, None], skip_step_indices]
         
         # === VECTORIZED POSITIVE GOALS SAMPLING ===
         # Sample future steps uniformly between (step + 1) and (traj_length - 1)
         random_offsets = np.random.rand(batch_size)
-        future_range = traj_lengths - step_ids - 1  # [B]
-        future_range = np.maximum(future_range, 1)  # Ensure at least 1
+        future_range = traj_lengths - step_ids - 1
+        future_range = np.maximum(future_range, 1)
         
         future_steps = step_ids + 1 + (random_offsets * future_range).astype(np.int32)
         future_steps = np.minimum(future_steps, traj_lengths - 1)
         
-        # Vectorized gather positive goal states: [B, state_dim]
-        pos_goal_states = self._padded_trajectories[traj_ids, future_steps]
-        pos_goals = self._goal_fn(pos_goal_states)  # [B, goal_dim]
+        # Gather positive goals: [B, state_dim]
+        positive_goals = self._padded_trajectories[traj_ids, future_steps]
         
-        # === VECTORIZED UNLABELED GOALS SAMPLING ===
-        rand_indices = np.random.randint(0, self._goal_pool.shape[0], size=(batch_size, num_goals_per_state))
-        unl_goals = self._goal_pool[rand_indices]  # [B, K, goal_dim]
+        # === VECTORIZED UNLABELED GOALS VIA ROLLING ===
+        # Roll positive_goals to create unlabeled goals (simpler than random sampling)
+        # Create multiple rolls to get num_goals_per_state unlabeled goals
+        unlabeled_goals = np.stack([
+            np.roll(positive_goals, shift=i+1, axis=0) 
+            for i in range(num_goals_per_state)
+        ], axis=1)  # [B, K, state_dim]
         
-        # Self goals
+        # === SELF GOALS ===
         self_goals = self._self_goals[idx]
         
         # Reachability batch
         reachability_batch = {
             "states": states,
             "skip_states": skip_states,
-            "positive_goals": pos_goals,
-            "unlabeled_goals": unl_goals,
+            "positive_goals": positive_goals,
+            "unlabeled_goals": unlabeled_goals,
             "self_goals": self_goals,
             "traj_ids": traj_ids,
         }
         
-        # Sample from the policy dataset using the same indices
-        # This ensures consistency in sampling
+        # Sample from policy dataset using the same indices
         pi_batch = self.pi_dataset.sample(batch_size, idxs=idx, evaluation=False)
         
-        # Return both batches
         return {
             'reachability': reachability_batch,
             'policy': pi_batch
@@ -841,18 +856,21 @@ class ReachabilityGCDataset(GCDataset):
         self, 
         anchor_idx: Optional[int] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Get one anchor state and all goal positions for visualization."""
+        """Get one anchor state and all goal positions for visualization.
+        
+        Args:
+            anchor_idx: Index of anchor state. If None, use first state of random trajectory.
+        
+        Returns:
+            Tuple of (anchor_state, all_goals, all_states).
+        """
         if anchor_idx is None:
             anchor_idx = np.random.randint(0, self.num_trajectories)
             anchor_state = self.trajectories[anchor_idx][0]
         else:
             anchor_state = self._states_np[anchor_idx]
         
-        all_goals = self._goal_pool
-        all_states = self._all_states
+        all_goals = self._states_np  # All states can serve as goals
+        all_states = self._states_np
         
         return anchor_state.astype(np.float32), all_goals.astype(np.float32), all_states.astype(np.float32)
-
-    @property
-    def start_states(self) -> np.ndarray:
-        return self._start_states
