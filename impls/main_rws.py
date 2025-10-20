@@ -1,68 +1,106 @@
 """
-Reachability estimator training script - Using RWSAgent
-Simplified version that uses the agent infrastructure from rws.py
+Reachability estimator training script - JAX/FLAX VERSION using RWSAgent
+Template-based with wandb logging and structured experiment tracking
 """
 
-from __future__ import annotations
-
-import argparse
 import json
+import os
 import random
+import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Sequence
 
-import numpy as np
 import jax
 import jax.numpy as jnp
-from tqdm import tqdm
+import numpy as np
+import tqdm
+import wandb
+from absl import app, flags
+from ml_collections import config_flags
 
-# Import agent and dataset
-from agents.rws import RWSAgent
+# Import from datasets.py
 from utils.datasets import ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
-from utils.flax_utils import save_agent
+
+# Import RWSAgent from rws.py
+from agents.rws import RWSAgent, get_config
+
+from utils.log_utils import CsvLogger, get_exp_name, get_flag_dict, setup_wandb
+from utils.flax_utils import save_agent, restore_agent
+
+FLAGS = flags.FLAGS
+
+# Experiment settings
+flags.DEFINE_string('run_group', 'ReachabilityRWS', 'Run group.')
+flags.DEFINE_integer('seed', 42, 'Random seed.')
+flags.DEFINE_string('save_dir', 'exp/', 'Save directory.')
+flags.DEFINE_string('restore_path', None, 'Restore path.')
+flags.DEFINE_integer('restore_epoch', None, 'Restore epoch.')
+
+# Dataset settings
+flags.DEFINE_enum('dataset_type', 'maze', ['ogbench', 'maze'], 'Source dataset.')
+flags.DEFINE_string('dataset_name', None, 'OGBench dataset name.')
+flags.DEFINE_enum('dataset_split', 'train', ['train', 'val'], 'Dataset split.')
+flags.DEFINE_boolean('compact_ogbench', False, 'Use compact OGBench dataset.')
+flags.DEFINE_string('maze_buffer', 'env/A_star_buffer.pkl', 'Path to maze buffer.')
+
+# Training settings
+flags.DEFINE_integer('train_steps', 1000000, 'Number of training steps.')
+flags.DEFINE_integer('steps_per_epoch', 0, 'Steps per epoch (0 = auto).')
+flags.DEFINE_integer('log_interval', 5000, 'Logging interval.')
+flags.DEFINE_integer('viz_interval', 100000, 'Visualization interval.')
+flags.DEFINE_integer('save_interval', 500000, 'Saving interval.')
+
+# Model settings
+flags.DEFINE_list('hidden_dims', ['256', '256', '256'], 'Hidden layer dimensions.')
+flags.DEFINE_integer('batch_size', 1024, 'Batch size.')
+flags.DEFINE_float('lr', 3e-4, 'Learning rate.')
+flags.DEFINE_float('tau', 0.995, 'Target network soft update rate.')
+
+# Loss settings
+flags.DEFINE_float('rank_margin', 0.0, 'Rank loss margin.')
+flags.DEFINE_float('lambda_cons', 1.0, 'Consistency loss weight.')
+
+# Reachability sampling settings
+flags.DEFINE_integer('num_goals_per_state', 4, 'Number of goals per state.')
+flags.DEFINE_integer('max_skip_horizon', None, 'Maximum skip horizon (None = 1-step only).')
+flags.DEFINE_integer('num_skip_states', 3, 'Number of skip states.')
+
+# Visualization settings
+flags.DEFINE_list('viz_dims', ['0', '1'], 'Dimensions to visualize.')
+flags.DEFINE_integer('viz_samples', 5000, 'Number of samples for visualization.')
+flags.DEFINE_integer('viz_anchors', 9, 'Number of anchor states to visualize.')
+
+config_flags.DEFINE_config_file('agent', 'agents/rws.py', lock_config=False)
 
 
 def set_seed(seed: int) -> None:
+    """Set random seeds for reproducibility."""
     random.seed(seed)
     np.random.seed(seed)
-
-
-def parse_hidden_dims(values: Sequence[int]) -> List[int]:
-    dims = [int(v) for v in values]
-    if any(d <= 0 for d in dims):
-        raise ValueError("Hidden layer sizes must be positive integers.")
-    return dims
 
 
 def visualize_reachability(
     agent: RWSAgent,
     dataset: ReachabilityGCDataset,
-    epoch: int,
+    step: int,
     save_dir: Path,
-    plot_dims: Sequence[int],
-    num_anchors: int = 4,
+    plot_dims: list[int],
+    num_anchors: int = 9,
     num_viz_samples: int = 5000,
-) -> None:
+) -> dict:
     """
     Visualize reachability landscapes from multiple anchor states.
     
-    Args:
-        agent: RWSAgent with trained reachability network
-        dataset: Reachability dataset
-        epoch: Current epoch number
-        save_dir: Directory to save visualization
-        plot_dims: Which dimensions to plot (2D)
-        num_anchors: Number of anchor states to visualize
-        num_viz_samples: Maximum number of data points to visualize
+    Returns:
+        Dictionary of visualization metrics for logging.
     """
     import matplotlib
     matplotlib.use("Agg", force=True)
     import matplotlib.pyplot as plt
 
-    dims = list(plot_dims)
+    dims = plot_dims
     if len(dims) != 2:
-        raise ValueError("plot_dims must contain exactly two indices for 2D visualization.")
+        raise ValueError("viz_dims must contain exactly two indices for 2D visualization.")
 
     n_rows = int(np.ceil(np.sqrt(num_anchors)))
     n_cols = int(np.ceil(num_anchors / n_rows))
@@ -85,32 +123,33 @@ def visualize_reachability(
     # Sample a subset if dataset is too large
     total_points = all_goals.shape[0]
     if total_points > num_viz_samples:
-        print(f"Sampling {num_viz_samples} out of {total_points} points for visualization")
         sample_indices = np.random.choice(total_points, size=num_viz_samples, replace=False)
         all_goals = all_goals[sample_indices]
         all_states = all_states[sample_indices]
-    else:
-        print(f"Visualizing all {total_points} points")
+
+    viz_metrics = {}
+    all_reachability_scores = []
 
     for plot_idx in range(num_anchors):
         ax = axes[plot_idx]
         
         anchor_state = start_states[anchor_indices[plot_idx]]
         
-        # Convert to JAX arrays
-        anchor_state_j = jnp.array(anchor_state)[None, :]  # [1, state_dim]
-        all_goals_j = jnp.array(all_goals)  # [N, goal_dim]
-        
         # Batch evaluation for efficiency
         batch_size = 1024
         reachability_scores = []
-        for i in range(0, all_goals_j.shape[0], batch_size):
-            batch_goals = all_goals_j[i:i + batch_size]
-            anchor_batch = jnp.tile(anchor_state_j, (batch_goals.shape[0], 1))
-            scores = agent.predict_reachability(anchor_batch, batch_goals)
-            reachability_scores.append(np.array(scores).reshape(-1))
+        for i in range(0, all_goals.shape[0], batch_size):
+            batch_goals = all_goals[i:i + batch_size]
+            anchor_batch = np.tile(anchor_state[None, :], (batch_goals.shape[0], 1))
+            scores_jax = agent.predict_reachability(
+                jnp.array(anchor_batch), 
+                jnp.array(batch_goals)
+            )
+            scores = np.array(scores_jax).reshape(-1)
+            reachability_scores.append(scores)
         
         reachability_scores = np.concatenate(reachability_scores, axis=0)
+        all_reachability_scores.extend(reachability_scores)
         goal_coords = all_states[:, dims]
         
         scatter = ax.scatter(
@@ -152,286 +191,232 @@ def visualize_reachability(
         axes[plot_idx].axis("off")
     
     viz_info = f"({min(total_points, num_viz_samples)}/{total_points} points)"
-    fig.suptitle(f"Reachability Landscapes @ Epoch {epoch} {viz_info}", fontsize=14, fontweight="bold")
+    fig.suptitle(f"Reachability Landscapes @ Step {step} {viz_info}", fontsize=14, fontweight="bold")
     fig.tight_layout()
 
     save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / f"reachability_epoch_{epoch:04d}.png"
+    save_path = save_dir / f"reachability_step_{step:07d}.png"
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-
-def train_reachability(
-    agent: RWSAgent,
-    dataset: ReachabilityGCDataset,
-    *,
-    epochs: int,
-    steps_per_epoch: int,
-    batch_size: int,
-    num_goals_per_state: int,
-    num_skip_states: int,
-    max_skip_horizon: Optional[int],
-    viz_every: int,
-    viz_dims: Sequence[int],
-    viz_dir: Path,
-    viz_samples: int,
-    save_every: int,
-    save_dir: Path,
-) -> RWSAgent:
-    """Core training loop for the reachability estimator."""
+    # Compute visualization metrics
+    viz_metrics['visualization/mean_reachability'] = np.mean(all_reachability_scores)
+    viz_metrics['visualization/std_reachability'] = np.std(all_reachability_scores)
+    viz_metrics['visualization/min_reachability'] = np.min(all_reachability_scores)
+    viz_metrics['visualization/max_reachability'] = np.max(all_reachability_scores)
     
-    # Create save directory if it doesn't exist
-    save_dir.mkdir(parents=True, exist_ok=True)
-    viz_dir.mkdir(parents=True, exist_ok=True)
+    # Log image to wandb
+    viz_metrics['visualization/reachability_landscape'] = wandb.Image(str(save_path))
     
-    total_transitions = len(dataset)
-    skip_info = f", max skip h={max_skip_horizon}" if max_skip_horizon else " (1-step only)"
-    print(f"Dataset transitions: {total_transitions}")
-    print(f"Training for {epochs} epochs, {steps_per_epoch} steps per epoch, batch size {batch_size}{skip_info}.")
+    return viz_metrics
 
-    for epoch in tqdm(range(1, epochs + 1)):
-        metrics_acc = defaultdict(float)
 
-        for _ in tqdm(range(steps_per_epoch), leave=False):
-            # Sample batch from dataset
-            batch_dict = dataset.sample_batch(
-                batch_size, 
-                num_goals_per_state=num_goals_per_state,
-                max_skip_horizon=max_skip_horizon,
-                num_skip_states=num_skip_states,
-            )
+def main(_):
+    # Set up experiment tracking
+    exp_name = get_exp_name(FLAGS.seed)
+    setup_wandb(project='ReachabilityEstimation', group=FLAGS.run_group, name=exp_name)
 
-            # Extract reachability batch
-            batch = batch_dict['reachability']
-            
-            # Training step using agent
-            agent, metrics = agent.update(batch)
-            
-            # Accumulate metrics
-            for key, value in metrics.items():
-                metrics_acc[key] += float(value)
-
-        # Average metrics
-        for key in metrics_acc:
-            metrics_acc[key] /= steps_per_epoch
-
-        # Print metrics with correct keys (rws/ prefix)
-        print(
-            f"Epoch {epoch:04d} | "
-            f"loss {metrics_acc.get('rws/loss_total', 0.0):.4f} | "
-            f"rank {metrics_acc.get('rws/loss_rank', 0.0):.4f} | "
-            f"cons {metrics_acc.get('rws/loss_cons', 0.0):.4f} | "
-            f"pos {metrics_acc.get('rws/pred_pos', 0.0):.3f} | "
-            f"unl {metrics_acc.get('rws/pred_unl', 0.0):.3f}"
-        )
-
-        if viz_every > 0 and epoch % viz_every == 0:
-            visualize_reachability(
-                agent,
-                dataset,
-                epoch=epoch,
-                save_dir=viz_dir,
-                plot_dims=viz_dims,
-                num_anchors=9,
-                num_viz_samples=viz_samples,
-            )
-
-        if save_every > 0 and epoch % save_every == 0:
-            save_agent(agent, save_dir, epoch)
+    FLAGS.save_dir = os.path.join(FLAGS.save_dir, wandb.run.project, FLAGS.run_group, exp_name)
+    os.makedirs(FLAGS.save_dir, exist_ok=True)
     
-    return agent
+    # Save flags
+    flag_dict = get_flag_dict()
+    with open(os.path.join(FLAGS.save_dir, 'flags.json'), 'w') as f:
+        json.dump(flag_dict, f)
 
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train reachability estimator using RWSAgent.")
-
-    # Dataset arguments
-    parser.add_argument("--dataset-type", choices=["ogbench", "maze"], required=True, help="Source dataset.")
-    parser.add_argument("--dataset-name", type=str, help="OGBench dataset name.")
-    parser.add_argument("--dataset-split", type=str, default="train", choices=["train", "val"])
-    parser.add_argument("--compact-ogbench", action="store_true")
-    parser.add_argument("--maze-buffer", type=str, default="env/A_star_buffer.pkl")
-
-    # Network architecture
-    parser.add_argument("--hidden-dims", type=int, nargs="+", default=[256, 256, 256])
-
-    # Training hyperparameters
-    parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--steps-per-epoch", type=int, default=0)
-    parser.add_argument("--batch-size", type=int, default=1024)
-    parser.add_argument("--lr", type=float, default=3e-4)
-    parser.add_argument("--tau", type=float, default=0.005)
-    
-    # Loss hyperparameters
-    parser.add_argument("--rank-margin", type=float, default=-0.05)
-    parser.add_argument("--lambda-cons", type=float, default=1.0)
-    
-    # Dataset sampling
-    parser.add_argument("--num-goals-per-state", type=int, default=4)
-    parser.add_argument("--max-skip-horizon", type=int, default=None)
-    parser.add_argument("--num-skip-states", type=int, default=3)
-
-    # Visualization
-    parser.add_argument("--viz-every", type=int, default=1)
-    parser.add_argument("--viz-dims", type=int, nargs=2, default=[0, 1])
-    parser.add_argument("--viz-dir", type=str, default="reachability_viz")
-    parser.add_argument("--viz-samples", type=int, default=5000)
-
-    # Saving
-    parser.add_argument("--save-every", type=int, default=10)
-    parser.add_argument("--save-dir", type=str, default="reachability_checkpoints")
-
-    parser.add_argument("--seed", type=int, default=42)
-
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    set_seed(args.seed)
+    # Set random seed
+    set_seed(FLAGS.seed)
 
     # Load dataset
-    if args.dataset_type == "ogbench":
-        if not args.dataset_name:
-            raise ValueError("--dataset-name must be provided for dataset-type 'ogbench'.")
-        print(f"Loading OGBench dataset: {args.dataset_name} ({args.dataset_split})")
+    print(f"Loading dataset: {FLAGS.dataset_type}")
+    if FLAGS.dataset_type == "ogbench":
+        if not FLAGS.dataset_name:
+            raise ValueError("--dataset_name must be provided for dataset_type 'ogbench'.")
+        print(f"  OGBench dataset: {FLAGS.dataset_name} ({FLAGS.dataset_split})")
         trajectories = load_ogbench_trajectories(
-            args.dataset_name,
-            split=args.dataset_split,
-            compact_dataset=args.compact_ogbench,
+            FLAGS.dataset_name,
+            split=FLAGS.dataset_split,
+            compact_dataset=FLAGS.compact_ogbench,
         )
     else:
-        buffer_path = Path(args.maze_buffer)
-        print(f"Loading maze buffer from {buffer_path}")
+        buffer_path = Path(FLAGS.maze_buffer)
+        print(f"  Maze buffer: {buffer_path}")
         trajectories = load_maze_trajectories(buffer_path)
 
     # Create ReachabilityGCDataset
-    dataset = ReachabilityGCDataset(
-        trajectories=trajectories,
+    dataset = ReachabilityGCDataset(trajectories=trajectories)
+    print(f"Dataset size: {len(dataset)} transitions")
+
+    # Parse hidden dimensions
+    hidden_dims = [int(d) for d in FLAGS.hidden_dims]
+
+    # Create agent config
+    config = get_config()
+    config['lr'] = FLAGS.lr
+    config['tau'] = FLAGS.tau
+    config['rank_margin'] = FLAGS.rank_margin
+    config['lambda_cons'] = FLAGS.lambda_cons
+    config['value_hidden_dims'] = tuple(hidden_dims)
+    config['batch_size'] = FLAGS.batch_size
+    config['num_goals_per_state'] = FLAGS.num_goals_per_state
+    config['num_skip_states'] = FLAGS.num_skip_states
+    config['max_skip_horizon'] = FLAGS.max_skip_horizon
+    config['encoder'] = None
+    config['frame_stack'] = None
+
+    # Get example observations for agent initialization
+    sample_batch = dataset.sample_batch(
+        batch_size=2,
+        num_goals_per_state=FLAGS.num_goals_per_state,
+        max_skip_horizon=FLAGS.max_skip_horizon,
+        num_skip_states=FLAGS.num_skip_states,
     )
+    ex_observations = sample_batch['reachability']['states']
+    ex_actions = np.zeros((2, 1))  # Dummy actions (not used in RWS)
 
-    print(f"Dataset created with {dataset.num_trajectories} trajectories")
-    print(f"State dimension: {dataset.state_dim}")
-    print(f"Total transitions: {len(dataset)}")
-
-    # Create agent configuration
-    hidden_dims = parse_hidden_dims(args.hidden_dims)
-    
-    config = {
-        'agent_name': 'rws',
-        'lr': args.lr,
-        'batch_size': args.batch_size,
-        'value_hidden_dims': tuple(hidden_dims),
-        'layer_norm': True,
-        'tau': args.tau,
-        'rank_margin': args.rank_margin,
-        'lambda_cons': args.lambda_cons,
-        'num_goals_per_state': args.num_goals_per_state,
-        'num_skip_states': args.num_skip_states,
-        'max_skip_horizon': args.max_skip_horizon,
-        'dataset_class': 'ReachabilityGCDataset',
-        'discount': 0.99,
-        'value_p_curgoal': 0.0,
-        'value_p_trajgoal': 1.0,
-        'value_p_randomgoal': 0.0,
-        'value_geom_sample': False,
-        'actor_p_curgoal': 0.0,
-        'actor_p_trajgoal': 0.5,
-        'actor_p_randomgoal': 0.5,
-        'actor_geom_sample': False,
-        'gc_negative': False,
-        'p_aug': None,
-        'frame_stack': None,
-        'encoder': None,
-        'discrete': False,  # IMPORTANT: Must be False for continuous state spaces
-    }
-
-    # Create example batch for agent initialization
-    example_batch = dataset.sample_batch(
-        batch_size=1,
-        num_goals_per_state=args.num_goals_per_state,
-        max_skip_horizon=args.max_skip_horizon,
-        num_skip_states=args.num_skip_states,
-    )['reachability']
-    
-    ex_observations = example_batch['states']
-    ex_actions = np.zeros((1, dataset.state_dim))  # Dummy actions with proper shape
-
-    # Create agent
+    # Initialize agent
     agent = RWSAgent.create(
-        args.seed,
-        ex_observations,
-        ex_actions,
-        config,
+        seed=FLAGS.seed,
+        ex_observations=ex_observations,
+        ex_actions=ex_actions,
+        config=config,
     )
 
-    steps_per_epoch = args.steps_per_epoch
+    # Restore agent if specified
+    if FLAGS.restore_path is not None:
+        agent = restore_agent(agent, FLAGS.restore_path, FLAGS.restore_epoch)
+        print(f"Restored agent from {FLAGS.restore_path}, epoch {FLAGS.restore_epoch}")
+
+    # Calculate steps per epoch if not specified
+    steps_per_epoch = FLAGS.steps_per_epoch
     if steps_per_epoch <= 0:
-        steps_per_epoch = max(len(dataset) // args.batch_size, 1)
+        steps_per_epoch = max(len(dataset) // FLAGS.batch_size, 1)
 
-    viz_dir = Path(args.viz_dir)
-    save_dir = Path(args.save_dir)
-
+    # Log configuration
     print("\nTraining configuration:")
+    config_summary = {
+        "dataset_size": len(dataset),
+        "hidden_dims_parsed": hidden_dims,  # Use different key to avoid conflict
+    }
     print(json.dumps({
-        "epochs": args.epochs,
-        "steps_per_epoch": steps_per_epoch,
-        "batch_size": args.batch_size,
-        "lr": args.lr,
-        "tau": args.tau,
-        "rank_margin": args.rank_margin,
-        "lambda_cons": args.lambda_cons,
-        "num_goals_per_state": args.num_goals_per_state,
-        "max_skip_horizon": args.max_skip_horizon,
-        "num_skip_states": args.num_skip_states,
-        "viz_samples": args.viz_samples,
+        "dataset_type": FLAGS.dataset_type,
+        "dataset_size": len(dataset),
+        "train_steps": FLAGS.train_steps,
+        "batch_size": FLAGS.batch_size,
+        "lr": FLAGS.lr,
+        "tau": FLAGS.tau,
+        "rank_margin": FLAGS.rank_margin,
+        "lambda_cons": FLAGS.lambda_cons,
+        "hidden_dims": hidden_dims,
+        "num_goals_per_state": FLAGS.num_goals_per_state,
+        "max_skip_horizon": FLAGS.max_skip_horizon,
+        "num_skip_states": FLAGS.num_skip_states,
     }, indent=2))
+    wandb.config.update(config_summary, allow_val_change=True)
 
-    # Train
-    agent = train_reachability(
-        agent,
-        dataset,
-        epochs=args.epochs,
-        steps_per_epoch=steps_per_epoch,
-        batch_size=args.batch_size,
-        num_goals_per_state=args.num_goals_per_state,
-        max_skip_horizon=args.max_skip_horizon,
-        num_skip_states=args.num_skip_states,
-        viz_every=args.viz_every,
-        viz_dims=args.viz_dims,
-        viz_dir=viz_dir,
-        viz_samples=args.viz_samples,
-        save_every=args.save_every,
-        save_dir=save_dir,
-    )
+    # Set up loggers
+    train_logger = CsvLogger(os.path.join(FLAGS.save_dir, 'train.csv'))
+    viz_logger = CsvLogger(os.path.join(FLAGS.save_dir, 'visualization.csv'))
 
-    print(f"\nTraining complete! Checkpoints saved to {save_dir}")
+    # Training loop
+    print(f"\nStarting training for {FLAGS.train_steps} steps...")
+    first_time = time.time()
+    last_time = time.time()
+    
+    for step in tqdm.tqdm(range(1, FLAGS.train_steps + 1), smoothing=0.1, dynamic_ncols=True):
+        # Sample batch and convert to JAX
+        batch_dict = dataset.sample_batch(
+            FLAGS.batch_size,
+            num_goals_per_state=FLAGS.num_goals_per_state,
+            max_skip_horizon=FLAGS.max_skip_horizon,
+            num_skip_states=FLAGS.num_skip_states,
+        )
+        batch_np = batch_dict['reachability']
+        batch = {k: jnp.array(v) for k, v in batch_np.items()}
+
+        # Update agent
+        agent, update_info = agent.update(batch)
+
+        # Log training metrics
+        if step % FLAGS.log_interval == 0:
+            train_metrics = {f'training/{k}': v for k, v in update_info.items()}
+            train_metrics['time/step_time'] = (time.time() - last_time) / FLAGS.log_interval
+            train_metrics['time/total_time'] = time.time() - first_time
+            train_metrics['time/steps_per_second'] = FLAGS.log_interval / (time.time() - last_time)
+            last_time = time.time()
+            
+            wandb.log(train_metrics, step=step)
+            train_logger.log(train_metrics, step=step)
+
+        # Visualize reachability landscapes
+        if step == 1 or step % FLAGS.viz_interval == 0:
+            print(f"\nGenerating visualization at step {step}...")
+            viz_dir = Path(FLAGS.save_dir) / 'visualizations'
+            viz_dims = [int(d) for d in FLAGS.viz_dims]
+            
+            viz_metrics = visualize_reachability(
+                agent=agent,
+                dataset=dataset,
+                step=step,
+                save_dir=viz_dir,
+                plot_dims=viz_dims,
+                num_anchors=FLAGS.viz_anchors,
+                num_viz_samples=FLAGS.viz_samples,
+            )
+            
+            wandb.log(viz_metrics, step=step)
+            viz_logger.log(viz_metrics, step=step)
+            print(f"Visualization saved. Mean reachability: {viz_metrics['visualization/mean_reachability']:.3f}")
+
+        # Save checkpoint
+        if step % FLAGS.save_interval == 0:
+            save_agent(agent, FLAGS.save_dir, step)
+            print(f"\nCheckpoint saved at step {step}")
+
+    # Final save
+    save_agent(agent, FLAGS.save_dir, FLAGS.train_steps)
+    print(f"\nTraining complete! Final checkpoint saved.")
+    
+    train_logger.close()
+    viz_logger.close()
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    app.run(main)
 
 
 """
 Example usage:
 
-# Train on maze dataset
-python main_rws.py \
-    --dataset-type maze \
-    --maze-buffer env/A_star_buffer.pkl \
-    --hidden-dims 256 256 256 \
-    --epochs 500 \
-    --batch-size 128 \
-    --num-skip-states 50 \
-    --num-goals-per-state 4
+# Maze environment
+python test.py \
+    --dataset_type=maze \
+    --maze_buffer=env/A_star_buffer.pkl \
+    --hidden_dims=256,256,256 \
+    --train_steps=1000000 \
+    --batch_size=128 \
+    --num_skip_states=50 \
+    --run_group=Maze
 
-# Train on OGBench dataset
-python main_rws.py \
-    --dataset-type ogbench \
-    --dataset-name antmaze-large-navigate-v0 \
-    --hidden-dims 256 256 256 \
-    --epochs 500 \
-    --batch-size 128 \
-    --num-skip-states 50 \
-    --num-goals-per-state 4
+# OGBench AntMaze
+python test.py \
+    --dataset_type=ogbench \
+    --dataset_name=antmaze-giant-stitch-v0 \
+    --hidden_dims=256,256,256 \
+    --train_steps=1000000 \
+    --batch_size=128 \
+    --num_skip_states=50 \
+    --run_group=AntMaze
+
+# With custom visualization settings
+python test.py \
+    --dataset_type=ogbench \
+    --dataset_name=antmaze-medium-navigate-v0 \
+    --hidden_dims=256,256,256 \
+    --train_steps=1000000 \
+    --batch_size=128 \
+    --viz_interval=50000 \
+    --viz_dims=0,1 \
+    --viz_samples=10000 \
+    --viz_anchors=16
 """

@@ -382,7 +382,7 @@ def train_reachability(
         model,
         lr,
         dataset.state_dim,
-        2
+        dataset.state_dim,
     )
     
     total_transitions = len(dataset)
@@ -592,7 +592,6 @@ python rws_test.py     --dataset-type maze     --maze-buffer env/A_star_buffer.p
  python rws_test.py \
      --dataset-type ogbench \
      --dataset-name antmaze-medium-navigate-v0 \
-     --goal-dim 2 \
      --hidden-dims 256 256 256 \
      --epochs 500 \
      --batch-size 128 \
