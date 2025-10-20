@@ -315,53 +315,31 @@ class GCValue(nn.Module):
 
 
 class RWSValue(nn.Module):
-    """Goal-conditioned value/critic function.
-
-    This module can be used for both value V(s, g) and critic Q(s, a, g) functions.
-
-    Attributes:
-        hidden_dims: Hidden layer dimensions.
-        layer_norm: Whether to apply layer normalization.
-        ensemble: Whether to ensemble the value function.
-        gc_encoder: Optional GCEncoder module to encode the inputs.
-    """
-
     hidden_dims: Sequence[int]
     layer_norm: bool = True
-    ensemble: bool = True
-    gc_encoder: nn.Module = None
-
-    def setup(self):
-        mlp_module = MLP
-        if self.ensemble:
-            mlp_module = ensemblize(mlp_module, 2)
-        value_net = mlp_module((*self.hidden_dims, 1), activate_final=False, layer_norm=self.layer_norm)
-
-        self.value_net = value_net
-
-    def __call__(self, observations, goals=None, actions=None):
-        """Return the value/critic function.
-
-        Args:
-            observations: Observations.
-            goals: Goals (optional).
-            actions: Actions (optional).
-        """
+    ensemble: bool = False
+    gc_encoder: Optional[nn.Module] = None
+    use_sigmoid: bool = True  # NEW: for reachability output
+    
+    @nn.compact
+    def __call__(self, observations, goals, **kwargs):
         if self.gc_encoder is not None:
-            inputs = [self.gc_encoder(observations, goals)]
+            x = self.gc_encoder(observations, goals)
         else:
-            inputs = [observations]
-            if goals is not None:
-                inputs.append(goals)
-        if actions is not None:
-            inputs.append(actions)
-        inputs = jnp.concatenate(inputs, axis=-1)
-
-        v = self.value_net(inputs).squeeze(-1)
-
-        v = jax.nn.sigmoid(v)  # Sigmoid to ensure values are in [0, 1]
-
-        return v
+            x = jnp.concatenate([observations, goals], axis=-1)
+        
+        for hidden_dim in self.hidden_dims:
+            x = nn.Dense(hidden_dim)(x)
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
+        
+        logits = nn.Dense(1)(x)
+        
+        if self.use_sigmoid:
+            return nn.sigmoid(logits)
+        else:
+            return logits
 
 
 class GCDiscreteCritic(GCValue):

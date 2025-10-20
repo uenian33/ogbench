@@ -1,369 +1,437 @@
-import json
-import os
-import random
-import time
-from pathlib import Path
+"""
+Reachability estimator training script - Using RWSAgent
+Simplified version that uses the agent infrastructure from rws.py
+"""
 
+from __future__ import annotations
+
+import argparse
+import json
+import random
+from collections import defaultdict
+from pathlib import Path
+from typing import List, Optional, Sequence
+
+import numpy as np
 import jax
 import jax.numpy as jnp
-import numpy as np
-import tqdm
-import wandb
-from absl import app, flags
-from agents import agents
-from ml_collections import config_flags
+from tqdm import tqdm
+
+# Import agent and dataset
+from agents.rws import RWSAgent
 from utils.datasets import ReachabilityGCDataset, load_maze_trajectories, load_ogbench_trajectories
-from utils.flax_utils import restore_agent, save_agent
-from utils.log_utils import CsvLogger, get_exp_name, get_flag_dict, setup_wandb
-from jax import device_put
-
-FLAGS = flags.FLAGS
-
-flags.DEFINE_string('run_group', 'RWS_Debug', 'Run group.')
-flags.DEFINE_integer('seed', 0, 'Random seed.')
-flags.DEFINE_string('env_name', 'antmaze-large-navigate-v0', 'Environment (dataset) name.')
-flags.DEFINE_string('save_dir', 'exp/', 'Save directory.')
-flags.DEFINE_string('restore_path', None, 'Restore path.')
-flags.DEFINE_integer('restore_epoch', None, 'Restore epoch.')
-
-flags.DEFINE_integer('train_steps', 100000, 'Number of training steps.')
-flags.DEFINE_integer('log_interval', 1000, 'Logging interval.')
-flags.DEFINE_integer('viz_interval', 10000, 'Visualization interval.')
-flags.DEFINE_integer('save_interval', 100000, 'Saving interval.')
-
-flags.DEFINE_string('dataset_type', "ogbench", 'dataset type.')
-flags.DEFINE_string('dataset_name', "antmaze-teleport-stitch-v0", 'dataset type.')
-flags.DEFINE_string('dataset_split', 'train', 'Dataset split to load when using ogbench datasets.')
-flags.DEFINE_bool('compact_ogbench', True, 'Load compact ogbench datasets (observations only).')
-flags.DEFINE_string('maze_buffer', None, 'Path to offline maze replay buffer (pickle).')
-
-flags.DEFINE_integer('num_goals_per_state', 4, 'Number of goals per state.')
-flags.DEFINE_integer('max_skip_horizon', None, '`Maximum skip horizon for RWS.')
-flags.DEFINE_integer('num_skip_states', 10, '`Number of intermediate states for RWS.')
-
-flags.DEFINE_integer('num_viz_anchors', 9, 'Number of anchor states for visualization.')
-flags.DEFINE_integer('num_viz_points', 5000, 'Number of points to visualize.')
-
-config_flags.DEFINE_config_file('agent', 'agents/rws.py', lock_config=False)
+from utils.flax_utils import save_agent
 
 
-def _prepare_reachability_batch(batch_np):
-    """Move the reachability batch to device and drop unused keys."""
-    return {
-        k: device_put(v)
-        for k, v in batch_np.items()
-        if k in ("states", "skip_states", "positive_goals", "unlabeled_goals", "self_goals")
-    }
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+
+
+def parse_hidden_dims(values: Sequence[int]) -> List[int]:
+    dims = [int(v) for v in values]
+    if any(d <= 0 for d in dims):
+        raise ValueError("Hidden layer sizes must be positive integers.")
+    return dims
 
 
 def visualize_reachability(
-    agent,
-    dataset,
-    epoch,
-    save_dir,
-    env_name,
-    num_viz_points=5000,
-    num_anchors=9,
-):
-    """Visualize reachability landscapes from multiple anchor states.
+    agent: RWSAgent,
+    dataset: ReachabilityGCDataset,
+    epoch: int,
+    save_dir: Path,
+    plot_dims: Sequence[int],
+    num_anchors: int = 4,
+    num_viz_samples: int = 5000,
+) -> None:
+    """
+    Visualize reachability landscapes from multiple anchor states.
     
-    For maze tasks: Use xy coordinates (first 2 dims)
-    For other tasks: Use PCA to reduce to 2D
+    Args:
+        agent: RWSAgent with trained reachability network
+        dataset: Reachability dataset
+        epoch: Current epoch number
+        save_dir: Directory to save visualization
+        plot_dims: Which dimensions to plot (2D)
+        num_anchors: Number of anchor states to visualize
+        num_viz_samples: Maximum number of data points to visualize
     """
     import matplotlib
-    matplotlib.use('Agg')
+    matplotlib.use("Agg", force=True)
     import matplotlib.pyplot as plt
-    from sklearn.decomposition import PCA
-    
-    # Determine if this is a maze task
-    is_maze = 'maze' in env_name.lower()
-    
-    # Get all states from dataset
-    all_states_list = [traj for traj in dataset.trajectories]
-    all_states = np.concatenate(all_states_list, axis=0)
-    
-    # Sample subset of points for efficiency
-    if all_states.shape[0] > num_viz_points:
-        sample_indices = np.random.choice(all_states.shape[0], size=num_viz_points, replace=False)
-        sampled_states = all_states[sample_indices]
-    else:
-        sampled_states = all_states
-    
-    # Extract goals from sampled states (fallback to identity if no phi provided)
-    if hasattr(dataset, 'phi'):
-        sampled_goals = dataset.phi(sampled_states)
-    else:
-        sampled_goals = sampled_states
-    
-    # Determine visualization coordinates
-    if is_maze:
-        # For maze tasks, use xy coordinates (first 2 dimensions)
-        viz_coords = sampled_states[:, :2]
-        coord_labels = ['X Position', 'Y Position']
-        print(f"Visualizing maze task using XY coordinates")
-    else:
-        # For non-maze tasks, use PCA
-        print(f"Applying PCA to reduce {sampled_states.shape[1]}D states to 2D")
-        pca = PCA(n_components=2)
-        viz_coords = pca.fit_transform(sampled_states)
-        explained_var = pca.explained_variance_ratio_
-        coord_labels = [
-            f'PC1 ({explained_var[0]:.1%} var)',
-            f'PC2 ({explained_var[1]:.1%} var)'
-        ]
-        print(f"PCA explained variance: {explained_var[0]:.2%} + {explained_var[1]:.2%} = {explained_var.sum():.2%}")
-    
-    # Setup subplots
+
+    dims = list(plot_dims)
+    if len(dims) != 2:
+        raise ValueError("plot_dims must contain exactly two indices for 2D visualization.")
+
     n_rows = int(np.ceil(np.sqrt(num_anchors)))
     n_cols = int(np.ceil(num_anchors / n_rows))
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
     if num_anchors == 1:
         axes = np.array([axes])
     axes = axes.flatten()
+
+    bounds_min, bounds_max = dataset.state_bounds
+    start_states = dataset.start_states
     
-    # Select anchor states (uniformly from trajectory starts)
-    start_states = np.stack([traj[0] for traj in dataset.trajectories], axis=0)
     if start_states.shape[0] < num_anchors:
         anchor_indices = np.random.choice(start_states.shape[0], size=num_anchors, replace=True)
     else:
         anchor_indices = np.linspace(0, start_states.shape[0] - 1, num=num_anchors, dtype=int)
+
+    # Get all states and goals, then sample if needed
+    _, all_goals, all_states = dataset.get_anchor_state_and_all_goals(anchor_idx=None)
     
-    # If using PCA, transform anchor states too
-    if not is_maze:
-        anchor_states_viz = pca.transform(start_states[anchor_indices])
-    
+    # Sample a subset if dataset is too large
+    total_points = all_goals.shape[0]
+    if total_points > num_viz_samples:
+        print(f"Sampling {num_viz_samples} out of {total_points} points for visualization")
+        sample_indices = np.random.choice(total_points, size=num_viz_samples, replace=False)
+        all_goals = all_goals[sample_indices]
+        all_states = all_states[sample_indices]
+    else:
+        print(f"Visualizing all {total_points} points")
+
     for plot_idx in range(num_anchors):
         ax = axes[plot_idx]
         
         anchor_state = start_states[anchor_indices[plot_idx]]
         
-        # Compute reachability for all sampled goals from this anchor
-        anchor_batch = np.tile(anchor_state[None, :], (sampled_goals.shape[0], 1))
+        # Convert to JAX arrays
+        anchor_state_j = jnp.array(anchor_state)[None, :]  # [1, state_dim]
+        all_goals_j = jnp.array(all_goals)  # [N, goal_dim]
         
-        # Batch evaluation (single device call)
-        reachability_scores = agent.predict_reachability(anchor_batch, sampled_goals)
-        reachability_scores = np.asarray(reachability_scores).reshape(-1)
+        # Batch evaluation for efficiency
+        batch_size = 1024
+        reachability_scores = []
+        for i in range(0, all_goals_j.shape[0], batch_size):
+            batch_goals = all_goals_j[i:i + batch_size]
+            anchor_batch = jnp.tile(anchor_state_j, (batch_goals.shape[0], 1))
+            scores = agent.predict_reachability(anchor_batch, batch_goals)
+            reachability_scores.append(np.array(scores).reshape(-1))
         
-        # Plot reachability landscape
+        reachability_scores = np.concatenate(reachability_scores, axis=0)
+        goal_coords = all_states[:, dims]
+        
         scatter = ax.scatter(
-            viz_coords[:, 0],
-            viz_coords[:, 1],
+            goal_coords[:, 0],
+            goal_coords[:, 1],
             c=reachability_scores,
-            cmap='RdYlGn',
-            s=10,
-            alpha=0.7,
+            cmap="RdYlGn",
+            s=8,
+            alpha=0.6,
             vmin=0.0,
             vmax=1.0,
         )
         
-        # Mark anchor state
-        if is_maze:
-            anchor_coord = anchor_state[:2]
-        else:
-            anchor_coord = anchor_states_viz[plot_idx]
-        
+        anchor_coord = anchor_state[dims]
         ax.scatter(
             anchor_coord[0],
             anchor_coord[1],
-            marker='*',
-            s=500,
-            color='blue',
-            edgecolors='white',
-            linewidths=2.5,
-            label='Anchor',
+            marker="*",
+            s=400,
+            color="blue",
+            edgecolors="white",
+            linewidths=2,
+            label="Anchor state",
             zorder=10,
         )
         
         cbar = fig.colorbar(scatter, ax=ax)
-        cbar.set_label('Reachability', fontsize=11)
+        cbar.set_label("Reachability", fontsize=10)
         
-        ax.set_xlabel(coord_labels[0], fontsize=11)
-        ax.set_ylabel(coord_labels[1], fontsize=11)
-        ax.set_title(f'Anchor #{plot_idx + 1}', fontsize=12, fontweight='bold')
-        ax.legend(loc='upper right', fontsize=10, framealpha=0.95)
-        ax.grid(True, alpha=0.25)
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(bounds_min[dims[0]], bounds_max[dims[0]])
+        ax.set_ylim(bounds_min[dims[1]], bounds_max[dims[1]])
+        ax.set_xlabel(f"Dim {dims[0]}", fontsize=10)
+        ax.set_ylabel(f"Dim {dims[1]}", fontsize=10)
+        ax.set_title(f"Anchor #{plot_idx + 1}", fontsize=11)
+        ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
+        ax.grid(True, alpha=0.3)
     
-    # Hide unused subplots
     for plot_idx in range(num_anchors, len(axes)):
-        axes[plot_idx].axis('off')
+        axes[plot_idx].axis("off")
     
-    title = f'Reachability Landscapes @ Step {epoch}'
-    if not is_maze:
-        title += ' (PCA projection)'
-    fig.suptitle(title, fontsize=16, fontweight='bold')
+    viz_info = f"({min(total_points, num_viz_samples)}/{total_points} points)"
+    fig.suptitle(f"Reachability Landscapes @ Epoch {epoch} {viz_info}", fontsize=14, fontweight="bold")
     fig.tight_layout()
-    
-    # Save figure
-    Path(save_dir).mkdir(parents=True, exist_ok=True)
-    save_path = Path(save_dir) / f'reachability_step_{epoch:07d}.png'
-    fig.savefig(save_path, dpi=150, bbox_inches='tight')
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / f"reachability_epoch_{epoch:04d}.png"
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved visualization to {save_path}")
 
 
-def main(_):
-    # Setup logger
-    exp_name = get_exp_name(FLAGS.seed)
-    setup_wandb(project='OGBench-RWS', group=FLAGS.run_group, name=exp_name)
+def train_reachability(
+    agent: RWSAgent,
+    dataset: ReachabilityGCDataset,
+    *,
+    epochs: int,
+    steps_per_epoch: int,
+    batch_size: int,
+    num_goals_per_state: int,
+    num_skip_states: int,
+    max_skip_horizon: Optional[int],
+    viz_every: int,
+    viz_dims: Sequence[int],
+    viz_dir: Path,
+    viz_samples: int,
+    save_every: int,
+    save_dir: Path,
+) -> RWSAgent:
+    """Core training loop for the reachability estimator."""
     
-    FLAGS.save_dir = os.path.join(FLAGS.save_dir, wandb.run.project, FLAGS.run_group, exp_name)
-    os.makedirs(FLAGS.save_dir, exist_ok=True)
+    # Create save directory if it doesn't exist
+    save_dir.mkdir(parents=True, exist_ok=True)
+    viz_dir.mkdir(parents=True, exist_ok=True)
     
-    flag_dict = get_flag_dict()
-    with open(os.path.join(FLAGS.save_dir, 'flags.json'), 'w') as f:
-        json.dump(flag_dict, f)
+    total_transitions = len(dataset)
+    skip_info = f", max skip h={max_skip_horizon}" if max_skip_horizon else " (1-step only)"
+    print(f"Dataset transitions: {total_transitions}")
+    print(f"Training for {epochs} epochs, {steps_per_epoch} steps per epoch, batch size {batch_size}{skip_info}.")
+
+    for epoch in tqdm(range(1, epochs + 1)):
+        metrics_acc = defaultdict(float)
+
+        for _ in tqdm(range(steps_per_epoch), leave=False):
+            # Sample batch from dataset
+            batch_dict = dataset.sample_batch(
+                batch_size, 
+                num_goals_per_state=num_goals_per_state,
+                max_skip_horizon=max_skip_horizon,
+                num_skip_states=num_skip_states,
+            )
+
+            # Extract reachability batch
+            batch = batch_dict['reachability']
+            
+            # Training step using agent
+            agent, metrics = agent.update(batch)
+            
+            # Accumulate metrics
+            for key, value in metrics.items():
+                metrics_acc[key] += float(value)
+
+        # Average metrics
+        for key in metrics_acc:
+            metrics_acc[key] /= steps_per_epoch
+
+        # Print metrics with correct keys (rws/ prefix)
+        print(
+            f"Epoch {epoch:04d} | "
+            f"loss {metrics_acc.get('rws/loss_total', 0.0):.4f} | "
+            f"rank {metrics_acc.get('rws/loss_rank', 0.0):.4f} | "
+            f"cons {metrics_acc.get('rws/loss_cons', 0.0):.4f} | "
+            f"pos {metrics_acc.get('rws/pred_pos', 0.0):.3f} | "
+            f"unl {metrics_acc.get('rws/pred_unl', 0.0):.3f}"
+        )
+
+        if viz_every > 0 and epoch % viz_every == 0:
+            visualize_reachability(
+                agent,
+                dataset,
+                epoch=epoch,
+                save_dir=viz_dir,
+                plot_dims=viz_dims,
+                num_anchors=9,
+                num_viz_samples=viz_samples,
+            )
+
+        if save_every > 0 and epoch % save_every == 0:
+            save_agent(agent, save_dir, epoch)
     
-    config = FLAGS.agent
-    dataset_type = (FLAGS.dataset_type or '').lower()
-    train_dataset = None
-    val_dataset = None
-    viz_env_name = FLAGS.env_name
+    return agent
 
-    if dataset_type == 'ogbench':
-        dataset_name = FLAGS.dataset_name or FLAGS.env_name
-        if not dataset_name:
-            raise ValueError("--dataset_name or --env_name must be provided for dataset_type='ogbench'.")
 
-        print(f"Loading OGBench dataset: {dataset_name} ({FLAGS.dataset_split})")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train reachability estimator using RWSAgent.")
+
+    # Dataset arguments
+    parser.add_argument("--dataset-type", choices=["ogbench", "maze"], required=True, help="Source dataset.")
+    parser.add_argument("--dataset-name", type=str, help="OGBench dataset name.")
+    parser.add_argument("--dataset-split", type=str, default="train", choices=["train", "val"])
+    parser.add_argument("--compact-ogbench", action="store_true")
+    parser.add_argument("--maze-buffer", type=str, default="env/A_star_buffer.pkl")
+
+    # Network architecture
+    parser.add_argument("--hidden-dims", type=int, nargs="+", default=[256, 256, 256])
+
+    # Training hyperparameters
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--steps-per-epoch", type=int, default=0)
+    parser.add_argument("--batch-size", type=int, default=1024)
+    parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--tau", type=float, default=0.005)
+    
+    # Loss hyperparameters
+    parser.add_argument("--rank-margin", type=float, default=-0.05)
+    parser.add_argument("--lambda-cons", type=float, default=1.0)
+    
+    # Dataset sampling
+    parser.add_argument("--num-goals-per-state", type=int, default=4)
+    parser.add_argument("--max-skip-horizon", type=int, default=None)
+    parser.add_argument("--num-skip-states", type=int, default=3)
+
+    # Visualization
+    parser.add_argument("--viz-every", type=int, default=1)
+    parser.add_argument("--viz-dims", type=int, nargs=2, default=[0, 1])
+    parser.add_argument("--viz-dir", type=str, default="reachability_viz")
+    parser.add_argument("--viz-samples", type=int, default=5000)
+
+    # Saving
+    parser.add_argument("--save-every", type=int, default=10)
+    parser.add_argument("--save-dir", type=str, default="reachability_checkpoints")
+
+    parser.add_argument("--seed", type=int, default=42)
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    set_seed(args.seed)
+
+    # Load dataset
+    if args.dataset_type == "ogbench":
+        if not args.dataset_name:
+            raise ValueError("--dataset-name must be provided for dataset-type 'ogbench'.")
+        print(f"Loading OGBench dataset: {args.dataset_name} ({args.dataset_split})")
         trajectories = load_ogbench_trajectories(
-            dataset_name,
-            split=FLAGS.dataset_split,
-            compact_dataset=FLAGS.compact_ogbench,
+            args.dataset_name,
+            split=args.dataset_split,
+            compact_dataset=args.compact_ogbench,
         )
-        train_dataset = ReachabilityGCDataset(
-            trajectories=trajectories,
-            config=config,
-        )
-        viz_env_name = dataset_name
-
-        # Try to build a validation dataset if a validation split exists.
-        if FLAGS.dataset_split.lower() != 'val':
-            try:
-                val_trajs = load_ogbench_trajectories(
-                    dataset_name,
-                    split='val',
-                    compact_dataset=FLAGS.compact_ogbench,
-                )
-            except ValueError:
-                val_trajs = None
-            if val_trajs:
-                val_dataset = ReachabilityGCDataset(
-                    trajectories=val_trajs,
-                    config=config,
-                )
-    elif dataset_type == 'maze':
-        if not FLAGS.maze_buffer:
-            raise ValueError("--maze_buffer must be provided for dataset_type='maze'.")
-        buffer_path = Path(FLAGS.maze_buffer)
-        if not buffer_path.exists():
-            raise FileNotFoundError(f"Maze buffer not found at {buffer_path}.")
+    else:
+        buffer_path = Path(args.maze_buffer)
         print(f"Loading maze buffer from {buffer_path}")
         trajectories = load_maze_trajectories(buffer_path)
-        train_dataset = ReachabilityGCDataset(
-            trajectories=trajectories,
-            config=config,
-        )
-        if not viz_env_name:
-            viz_env_name = buffer_path.stem
-    else:
-        raise ValueError(f"Unsupported dataset_type '{FLAGS.dataset_type}'. Expected 'ogbench' or 'maze'.")
+
+    # Create ReachabilityGCDataset
+    dataset = ReachabilityGCDataset(
+        trajectories=trajectories,
+    )
+
+    print(f"Dataset created with {dataset.num_trajectories} trajectories")
+    print(f"State dimension: {dataset.state_dim}")
+    print(f"Total transitions: {len(dataset)}")
+
+    # Create agent configuration
+    hidden_dims = parse_hidden_dims(args.hidden_dims)
     
-    # Initialize agent
-    random.seed(FLAGS.seed)
-    np.random.seed(FLAGS.seed)
-    
-    example_reachability = train_dataset.sample_batch(
+    config = {
+        'agent_name': 'rws',
+        'lr': args.lr,
+        'batch_size': args.batch_size,
+        'value_hidden_dims': tuple(hidden_dims),
+        'layer_norm': True,
+        'tau': args.tau,
+        'rank_margin': args.rank_margin,
+        'lambda_cons': args.lambda_cons,
+        'num_goals_per_state': args.num_goals_per_state,
+        'num_skip_states': args.num_skip_states,
+        'max_skip_horizon': args.max_skip_horizon,
+        'dataset_class': 'ReachabilityGCDataset',
+        'discount': 0.99,
+        'value_p_curgoal': 0.0,
+        'value_p_trajgoal': 1.0,
+        'value_p_randomgoal': 0.0,
+        'value_geom_sample': False,
+        'actor_p_curgoal': 0.0,
+        'actor_p_trajgoal': 0.5,
+        'actor_p_randomgoal': 0.5,
+        'actor_geom_sample': False,
+        'gc_negative': False,
+        'p_aug': None,
+        'frame_stack': None,
+        'encoder': None,
+        'discrete': False,  # IMPORTANT: Must be False for continuous state spaces
+    }
+
+    # Create example batch for agent initialization
+    example_batch = dataset.sample_batch(
         batch_size=1,
-        num_goals_per_state=FLAGS.num_goals_per_state,
-        max_skip_horizon=FLAGS.max_skip_horizon,
-        num_skip_states=FLAGS.num_skip_states,
+        num_goals_per_state=args.num_goals_per_state,
+        max_skip_horizon=args.max_skip_horizon,
+        num_skip_states=args.num_skip_states,
     )['reachability']
-    example_observations = example_reachability['states']
-    example_goals = example_reachability['positive_goals']
     
-    agent_class = agents[config['agent_name']]
-    agent = agent_class.create(
-        FLAGS.seed,
-        example_observations,
-        example_goals,
+    ex_observations = example_batch['states']
+    ex_actions = np.zeros((1, dataset.state_dim))  # Dummy actions with proper shape
+
+    # Create agent
+    agent = RWSAgent.create(
+        args.seed,
+        ex_observations,
+        ex_actions,
         config,
     )
-    
-    # Restore agent if specified
-    if FLAGS.restore_path is not None:
-        agent = restore_agent(agent, FLAGS.restore_path, FLAGS.restore_epoch)
-    
-    # Training loop
-    train_logger = CsvLogger(os.path.join(FLAGS.save_dir, 'train.csv'))
-    viz_dir = os.path.join(FLAGS.save_dir, 'visualizations')
-    
-    first_time = time.time()
-    last_time = time.time()
-    
-    for i in tqdm.tqdm(range(1, FLAGS.train_steps + 1), smoothing=0.1, dynamic_ncols=True):
-        # Update agent
-        batch_dict = train_dataset.sample_batch(
-            config['batch_size'], 
-            num_goals_per_state=FLAGS.num_goals_per_state,
-            max_skip_horizon=FLAGS.max_skip_horizon,
-            num_skip_states=FLAGS.num_skip_states,
-        )
 
-        # Extract reachability batch
-        batch_np = batch_dict['reachability']
+    steps_per_epoch = args.steps_per_epoch
+    if steps_per_epoch <= 0:
+        steps_per_epoch = max(len(dataset) // args.batch_size, 1)
 
-        # Convert to device arrays
-        batch = _prepare_reachability_batch(batch_np)
-        
-        agent, update_info = agent.update(batch)
-        
-        # Log metrics
-        if i % FLAGS.log_interval == 0:
-            train_metrics = {f'training/{k}': v for k, v in update_info.items()}
-            
-            if val_dataset is not None:
-                val_batch_dict = val_dataset.sample_batch(
-                    config['batch_size'], 
-                    num_goals_per_state=FLAGS.num_goals_per_state,
-                    max_skip_horizon=FLAGS.max_skip_horizon,
-                    num_skip_states=FLAGS.num_skip_states,
-                )
+    viz_dir = Path(args.viz_dir)
+    save_dir = Path(args.save_dir)
 
-                # Extract reachability batch
-                val_batch_np = val_batch_dict['reachability']
+    print("\nTraining configuration:")
+    print(json.dumps({
+        "epochs": args.epochs,
+        "steps_per_epoch": steps_per_epoch,
+        "batch_size": args.batch_size,
+        "lr": args.lr,
+        "tau": args.tau,
+        "rank_margin": args.rank_margin,
+        "lambda_cons": args.lambda_cons,
+        "num_goals_per_state": args.num_goals_per_state,
+        "max_skip_horizon": args.max_skip_horizon,
+        "num_skip_states": args.num_skip_states,
+        "viz_samples": args.viz_samples,
+    }, indent=2))
 
-                # Convert to device arrays
-                val_batch = _prepare_reachability_batch(val_batch_np)
-                
-                _, val_info = agent.total_loss(val_batch, grad_params=None)
-                train_metrics.update({f'validation/{k}': v for k, v in val_info.items()})
-            
-            train_metrics['time/step_time'] = (time.time() - last_time) / FLAGS.log_interval
-            train_metrics['time/total_time'] = time.time() - first_time
-            last_time = time.time()
-            
-            wandb.log(train_metrics, step=i)
-            train_logger.log(train_metrics, step=i)
-        
-        # Visualize reachability
-        if i == 1 or i % FLAGS.viz_interval == 0:
-            visualize_reachability(
-                agent=agent,
-                dataset=train_dataset,
-                epoch=i,
-                save_dir=viz_dir,
-                env_name=viz_env_name,
-                num_viz_points=FLAGS.num_viz_points,
-                num_anchors=FLAGS.num_viz_anchors,
-            )
-        
-        # Save checkpoint
-        if i % FLAGS.save_interval == 0:
-            save_agent(agent, FLAGS.save_dir, i)
-    
-    train_logger.close()
+    # Train
+    agent = train_reachability(
+        agent,
+        dataset,
+        epochs=args.epochs,
+        steps_per_epoch=steps_per_epoch,
+        batch_size=args.batch_size,
+        num_goals_per_state=args.num_goals_per_state,
+        max_skip_horizon=args.max_skip_horizon,
+        num_skip_states=args.num_skip_states,
+        viz_every=args.viz_every,
+        viz_dims=args.viz_dims,
+        viz_dir=viz_dir,
+        viz_samples=args.viz_samples,
+        save_every=args.save_every,
+        save_dir=save_dir,
+    )
+
+    print(f"\nTraining complete! Checkpoints saved to {save_dir}")
 
 
-if __name__ == '__main__':
-    app.run(main)
+if __name__ == "__main__":
+    main()
+
+
+"""
+Example usage:
+
+# Train on maze dataset
+python main_rws.py \
+    --dataset-type maze \
+    --maze-buffer env/A_star_buffer.pkl \
+    --hidden-dims 256 256 256 \
+    --epochs 500 \
+    --batch-size 128 \
+    --num-skip-states 50 \
+    --num-goals-per-state 4
+
+# Train on OGBench dataset
+python main_rws.py \
+    --dataset-type ogbench \
+    --dataset-name antmaze-large-navigate-v0 \
+    --hidden-dims 256 256 256 \
+    --epochs 500 \
+    --batch-size 128 \
+    --num-skip-states 50 \
+    --num-goals-per-state 4
+"""
