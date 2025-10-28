@@ -40,10 +40,12 @@ set -a
 source /scratch/work/yangw4/.secrets/wandb.env || true
 set +a
 
+export WANDB_MODE=offline
+export WANDB_DIR="/scratch/work/yangw4/ogbench/wandb"
+
 # Hard defaults if not provided; prevents 404 on a wrong team slug
 export WANDB_ENTITY="${WANDB_ENTITY:-wenyany94}"     # <- your user
 export WANDB_PROJECT="${WANDB_PROJECT:-ogbench-rws}"
-export WANDB_DIR="${PROJECT_DIR}/wandb"
 export WANDB_CACHE_DIR="${PROJECT_DIR}/.cache/wandb"
 mkdir -p "$WANDB_DIR" "$WANDB_CACHE_DIR"
 
