@@ -1,22 +1,16 @@
 #!/bin/bash
-# Create/submit a Slurm job array for many runs with a concurrency cap.
+# Submit a Slurm job array; cap concurrent runs via %CONCURRENCY.
 
 set -euo pipefail
 
 PROJECT_DIR="/scratch/work/yangw4/ogbench"
-CODE_FILE="${PROJECT_DIR}/impls/main_reachability.py"
+SUB="${PROJECT_DIR}/impls/train_rws_triton_sub.sh"
 RUN_LIST="${PROJECT_DIR}/train_runs.tsv"
-CONCURRENCY="${1:-6}"   # pass 3..6 on CLI to change; default 6
-
-# Preflight: ensure code file exists
-if [[ ! -f "${CODE_FILE}" ]]; then
-  echo "ERROR: ${CODE_FILE} not found. Fix the path, then try again."
-  exit 2
-fi
+CONCURRENCY="${1:-6}"   # how many jobs in parallel (e.g., 3..6)
 
 mkdir -p "${PROJECT_DIR}/logs"
 
-# --- Write the run list (TASK \t DISCOUNT) ---
+# Task \t Discount
 cat > "${RUN_LIST}" <<'TSV'
 pointmaze-medium-navigate-v0	0.8
 pointmaze-large-navigate-v0	0.8
@@ -46,6 +40,6 @@ humanoidmaze-giant-stitch-v0	0.99
 TSV
 
 N=$(grep -cve '^\s*$' "${RUN_LIST}")
-echo "Submitting ${N} jobs with concurrency ${CONCURRENCY}"
+echo "Submitting ${N} array jobs, concurrency ${CONCURRENCY}"
 
-sbatch --array=0-$((N-1))%${CONCURRENCY} "${PROJECT_DIR}/impls/train_rws_triton_sub.sh" "${RUN_LIST}"
+sbatch --array=0-$((N-1))%${CONCURRENCY} "${SUB}" "${RUN_LIST}"
