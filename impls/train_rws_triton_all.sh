@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # Edit if you moved things:
-PROJECT_DIR="/scratch/work/yangw4/ogbench"
+PROJECT_DIR="/scratch/work/yangw4/ogbench/impls"
 RUN_LIST="${PROJECT_DIR}/train_runs.tsv"
 CONCURRENCY="${1:-6}"   # pass 3..6 on CLI to change; default 6
 
