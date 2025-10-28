@@ -12,7 +12,7 @@ set -euo pipefail
 
 # --- Paths & env ---
 PROJECT_DIR="/scratch/work/yangw4/ogbench"
-ENV_NAME="ogb-jax-cu12"     # change if your env has another name
+ENV_NAME="ogbench"     # change if your env has another name
 RUN_LIST="${1:?Usage: $0 RUN_LIST_TSV}"
 
 module load mamba
