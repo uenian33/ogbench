@@ -915,6 +915,8 @@ class ReachabilityGCDataset(GCDataset):
     ) -> Dict[str, np.ndarray]:
         """Sample minibatch with multi-step skip consistency (fully vectorized).
         
+        Now includes step counts for TD-RWS training.
+        
         Args:
             batch_size: Number of samples in the batch.
             num_goals_per_state: Number of unlabeled goals per state.
@@ -927,8 +929,10 @@ class ReachabilityGCDataset(GCDataset):
         # Sample random indices
         idx = np.random.randint(0, len(self), size=batch_size)
         states = self._states_np[idx]
+        next_states = self._next_states_np[idx]
         traj_ids = self._traj_ids_np[idx]
         step_ids = self._step_ids_np[idx]
+
         
         # === VECTORIZED SKIP STATES SAMPLING ===
         traj_lengths = self._traj_lengths[traj_ids]
@@ -949,6 +953,9 @@ class ReachabilityGCDataset(GCDataset):
         skip_step_indices = np.minimum(skip_step_indices, (traj_lengths - 1)[:, None])
         skip_states = self._padded_trajectories[traj_ids[:, None], skip_step_indices]
         
+        # Store skip step counts (horizons): [B, M]
+        skip_steps = horizons.astype(np.float32)
+        
         # === VECTORIZED POSITIVE GOALS SAMPLING ===
         # Sample future steps uniformly between (step + 1) and (traj_length - 1)
         random_offsets = np.random.rand(batch_size)
@@ -960,6 +967,9 @@ class ReachabilityGCDataset(GCDataset):
         
         # Gather positive goals: [B, state_dim]
         positive_goals = self._padded_trajectories[traj_ids, future_steps]
+        
+        # Compute positive step counts: [B]
+        positive_steps = (future_steps - step_ids).astype(np.float32)
         
         # === VECTORIZED UNLABELED GOALS VIA ROLLING ===
         # Roll positive_goals to create unlabeled goals (simpler than random sampling)
@@ -975,11 +985,15 @@ class ReachabilityGCDataset(GCDataset):
         # Reachability batch
         reachability_batch = {
             "states": states,
+            "next_states": next_states,
             "skip_states": skip_states,
             "positive_goals": positive_goals,
             "unlabeled_goals": unlabeled_goals,
             "self_goals": self_goals,
             "traj_ids": traj_ids,
+            # NEW: Step counts for TD-RWS
+            "positive_steps": positive_steps,
+            "skip_steps": skip_steps,
         }
         
         # Sample from policy dataset using the same indices

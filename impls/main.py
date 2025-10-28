@@ -58,9 +58,9 @@ def main(_):
     env, train_dataset, val_dataset = make_env_and_datasets(FLAGS.env_name, frame_stack=config['frame_stack'])
 
     dataset_class = {
-        'GCDataset': ReachabilityGCDataset, #GCDataset,
-        'HGCDataset': ReachabilityGCDataset, #HGCDataset,
-        'TDInfoNCEDataset': ReachabilityGCDataset, #TDInfoNCEDataset,
+        'GCDataset': ReachabilityGCDataset,
+        'HGCDataset': HGCDataset,
+        'TDInfoNCEDataset': TDInfoNCEDataset,
         'ReachabilityDataset': ReachabilityGCDataset,
     }[config['dataset_class']]
     config['sample_tyoe'] = {
@@ -85,6 +85,8 @@ def main(_):
     agent_class = agents[config['agent_name']]
     agent_kwargs = {}
     
+    print(config)
+    #a()
 
     agent = agent_class.create(
         FLAGS.seed,
