@@ -29,11 +29,14 @@ export JAX_PLATFORMS=cuda
 export XDG_CACHE_HOME="${PROJECT_DIR}/.cache"
 mkdir -p "${XDG_CACHE_HOME}"
 
+
+export WANDB_API_KEY=149086ee6abaf8e282c5de9163b7d3969d4c5c01
+export WANDB_ENTITY=wenyany94          # or your team slug
+export WANDB_PROJECT=ogbench-rws
+
 # --- Minimal, robust W&B setup ---
 # If WANDB_API_KEY is present in the job environment, logs go online.
 # If not, we switch to offline to avoid crashes (401/no-tty).
-export WANDB_ENTITY="${WANDB_ENTITY:-wenyany94}"       # or your team slug
-export WANDB_PROJECT="${WANDB_PROJECT:-ogbench-rws}"
 export WANDB_DIR="${PROJECT_DIR}/wandb"
 export WANDB_CACHE_DIR="${PROJECT_DIR}/.cache/wandb"
 mkdir -p "$WANDB_DIR" "$WANDB_CACHE_DIR"
