@@ -48,4 +48,4 @@ TSV
 N=$(grep -cve '^\s*$' "${RUN_LIST}")
 echo "Submitting ${N} jobs with concurrency ${CONCURRENCY}"
 
-sbatch --array=0-$((N-1))%${CONCURRENCY} "${PROJECT_DIR}/train_rws_triton_sub.sh" "${RUN_LIST}"
+sbatch --array=0-$((N-1))%${CONCURRENCY} "${PROJECT_DIR}/impls/train_rws_triton_sub.sh" "${RUN_LIST}"
