@@ -33,6 +33,21 @@ export OGBENCH_DATA_DIR="${PROJECT_DIR}/.ogbench/data"
 export XDG_CACHE_HOME="${PROJECT_DIR}/.cache"   # keep caches off $HOME
 mkdir -p "${OGBENCH_DATA_DIR}" "${PROJECT_DIR}/logs" "${XDG_CACHE_HOME}"
 
+
+# --- W&B (non-interactive) ---
+set -a
+source /scratch/work/yangw4/.secrets/wandb.env || true   # loads WANDB_* if present
+set +a
+export WANDB_DIR="${PROJECT_DIR}/wandb"                  # keep logs off $HOME
+export WANDB_CACHE_DIR="${PROJECT_DIR}/.cache/wandb"
+mkdir -p "$WANDB_DIR" "$WANDB_CACHE_DIR"
+
+# If no key provided, fall back to offline so jobs still run
+if [[ -z "${WANDB_API_KEY:-}" ]]; then
+  export WANDB_MODE=offline
+fi
+
+
 # --- Select task/discount from array index ---
 INDEX="${SLURM_ARRAY_TASK_ID:?array id missing}"
 mapfile -t LINES < "${RUN_LIST}"
