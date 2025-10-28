@@ -7,14 +7,10 @@ export XLA_PYTHON_CLIENT_PREALLOCATE=false
 python - <<PY
 import jax, jax.numpy as jnp
 print("jax:", jax.__version__)
-from jax.lib import xla_bridge
-print("backend:", xla_bridge.get_backend().platform)
-print("devices:", jax.devices())
-# do a tiny GPU compute and show which device it ran on
+print("devices:", jax.devices())           # should list CudaDevice(...)
 x = jnp.ones((2048, 2048))
-y = x @ x
-y.block_until_ready()
-print("result device:", y.device())
-print("GPU present?:", any(d.platform in ("gpu","cuda") for d in jax.devices()))
+y = (x @ x).block_until_ready()
+print("ran on:", y.device)                 # <-- no parentheses
+
 PY
 '
