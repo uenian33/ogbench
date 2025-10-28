@@ -1,20 +1,46 @@
 #!/bin/bash
+# Create/submit a Slurm job array for many runs with a concurrency cap.
+
 set -euo pipefail
 
-# How many in parallel? (3–6 per your request)
-MAX_PARALLEL="${1:-6}"
+# Edit if you moved things:
+PROJECT_DIR="/scratch/work/yangw4/ogbench"
+RUN_LIST="${PROJECT_DIR}/train_runs.tsv"
+CONCURRENCY="${1:-6}"   # pass 3..6 on CLI to change; default 6
 
-# We have 25 tasks: indices 0..24
-ARRAY_RANGE="0-24%${MAX_PARALLEL}"
+mkdir -p "${PROJECT_DIR}/logs"
 
-mkdir -p /scratch/work/yangw4/ogbench/impls/logs
+# --- Write the run list (TASK \t DISCOUNT) ---
+cat > "${RUN_LIST}" <<'TSV'
+pointmaze-medium-navigate-v0	0.8
+pointmaze-large-navigate-v0	0.8
+pointmaze-giant-navigate-v0	0.8
+pointmaze-teleport-navigate-v0	0.95
+pointmaze-medium-stitch-v0	0.99
+pointmaze-large-stitch-v0	0.999
+pointmaze-giant-stitch-v0	0.999
+pointmaze-teleport-stitch-v0	0.995
+antmaze-medium-navigate-v0	0.9
+antmaze-large-navigate-v0	0.9
+antmaze-giant-navigate-v0	0.9
+antmaze-teleport-navigate-v0	0.95
+antmaze-medium-stitch-v0	0.95
+antmaze-large-stitch-v0	0.99
+antmaze-giant-stitch-v0	0.99
+antmaze-teleport-stitch-v0	0.99
+antmaze-medium-explore-v0	0.99
+antmaze-large-explore-v0	0.995
+antmaze-teleport-explore-v0	0.995
+humanoidmaze-medium-navigate-v0	0.85
+humanoidmaze-large-navigate-v0	0.9
+humanoidmaze-giant-navigate-v0	0.85
+humanoidmaze-medium-stitch-v0	0.95
+humanoidmaze-large-stitch-v0	0.99
+humanoidmaze-giant-stitch-v0	0.99
+TSV
 
-# Submit without pinning a partition; Triton will auto-pick a GPU partition
-sbatch --array="${ARRAY_RANGE}" train_rws_triton_sub.sbatch
+N=$(grep -cve '^\s*$' "${RUN_LIST}")
+echo "Submitting ${N} jobs with concurrency ${CONCURRENCY}"
 
-echo "Submitted array ${ARRAY_RANGE}. View queue with:  squeue -u $USER"
-
-
-# cd /scratch/work/yangw4/ogbench
-# chmod +x submit_all.sh
-# ./submit_all.sh 6     # run up to 6 trainings at the same time (change to 3..6 as you like)
+# Submit a single job array; Triton will auto-pick a GPU partition from --gpus
+sbatch --array=0-$((N-1))%${CONCURRENCY} "${PROJECT_DIR}/train_rws_triton_sub.sh" "${RUN_LIST}"
