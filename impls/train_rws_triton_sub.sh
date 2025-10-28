@@ -13,7 +13,7 @@ set -euo pipefail
 PROJECT_DIR="/scratch/work/yangw4/ogbench"
 CODE_DIR="${PROJECT_DIR}/impls"
 CODE_FILE="${CODE_DIR}/main_reachability.py"
-ENV_NAME="ogb-jax-cu12"
+ENV_NAME="ogbench"
 RUN_LIST="${1:?Usage: $0 RUN_LIST_TSV}"
 
 # Preflight
