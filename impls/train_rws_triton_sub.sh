@@ -2,30 +2,38 @@
 #SBATCH -J rws_arr
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G                 # system RAM
-#SBATCH --gpus=1                  # 1 GPU
-#SBATCH --gres=min-vram:10g       # need ≥10 GB VRAM
+#SBATCH --mem=32G
+#SBATCH --gpus=1
+#SBATCH --gres=min-vram:10g
 #SBATCH -o /scratch/work/yangw4/ogbench/logs/%x.%A.%a.%j.out
 #SBATCH -e /scratch/work/yangw4/ogbench/logs/%x.%A.%a.%j.err
 
 set -euo pipefail
 
-# --- Paths & env ---
 PROJECT_DIR="/scratch/work/yangw4/ogbench"
-ENV_NAME="ogbench"     # change if your env has another name
+CODE_DIR="${PROJECT_DIR}/impls"
+CODE_FILE="${CODE_DIR}/main_reachability.py"
+ENV_NAME="ogb-jax-cu12"
 RUN_LIST="${1:?Usage: $0 RUN_LIST_TSV}"
+
+# Preflight
+if [[ ! -f "${CODE_FILE}" ]]; then
+  echo "ERROR: ${CODE_FILE} not found."
+  exit 2
+fi
 
 module load mamba
 source activate "${ENV_NAME}"
 
-# JAX/MuJoCo niceties
+# JAX/MuJoCo env
 export MUJOCO_GL=egl
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 export JAX_PLATFORMS=cuda
 export OGBENCH_DATA_DIR="${PROJECT_DIR}/.ogbench/data"
-mkdir -p "${OGBENCH_DATA_DIR}"
+export XDG_CACHE_HOME="${PROJECT_DIR}/.cache"   # keep caches off $HOME
+mkdir -p "${OGBENCH_DATA_DIR}" "${PROJECT_DIR}/logs" "${XDG_CACHE_HOME}"
 
-# --- Pick task/discount from array index ---
+# --- Select task/discount from array index ---
 INDEX="${SLURM_ARRAY_TASK_ID:?array id missing}"
 mapfile -t LINES < "${RUN_LIST}"
 if (( INDEX < 0 || INDEX >= ${#LINES[@]} )); then
@@ -37,7 +45,7 @@ LINE="${LINES[$INDEX]}"
 TASK="$(echo "${LINE}" | cut -f1)"
 DISCOUNT="$(echo "${LINE}" | cut -f2)"
 
-cd "${PROJECT_DIR}"
+cd "${CODE_DIR}"
 
 echo "========= RWS training (idx ${INDEX}) ========="
 echo "TASK=${TASK}  DISCOUNT=${DISCOUNT}"
@@ -45,8 +53,8 @@ echo "Host: $(hostname)"
 nvidia-smi || true
 echo "==============================================="
 
-# --- Command template (matches your local script) ---
-TEMPLATE='python main_reachability.py \
+# --- Command template (points to impls/main_reachability.py now) ---
+TEMPLATE='python -u main_reachability.py \
   --agent_type=rws \
   --dataset_type=ogbench \
   --dataset_name=TASK_NAME \
@@ -61,6 +69,6 @@ TEMPLATE='python main_reachability.py \
 CMD="${TEMPLATE//TASK_NAME/${TASK}}"
 CMD="${CMD//DISCOUNT_VALUE/${DISCOUNT}}"
 
-# Use srun for proper Slurm accounting
 echo "Running: ${CMD}"
+# Use srun for proper Slurm accounting + GPU binding
 srun bash -lc "${CMD}"

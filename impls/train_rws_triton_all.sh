@@ -3,10 +3,16 @@
 
 set -euo pipefail
 
-# Edit if you moved things:
-PROJECT_DIR="/scratch/work/yangw4/ogbench/impls"
+PROJECT_DIR="/scratch/work/yangw4/ogbench"
+CODE_FILE="${PROJECT_DIR}/impls/main_reachability.py"
 RUN_LIST="${PROJECT_DIR}/train_runs.tsv"
 CONCURRENCY="${1:-6}"   # pass 3..6 on CLI to change; default 6
+
+# Preflight: ensure code file exists
+if [[ ! -f "${CODE_FILE}" ]]; then
+  echo "ERROR: ${CODE_FILE} not found. Fix the path, then try again."
+  exit 2
+fi
 
 mkdir -p "${PROJECT_DIR}/logs"
 
@@ -42,5 +48,4 @@ TSV
 N=$(grep -cve '^\s*$' "${RUN_LIST}")
 echo "Submitting ${N} jobs with concurrency ${CONCURRENCY}"
 
-# Submit a single job array; Triton will auto-pick a GPU partition from --gpus
 sbatch --array=0-$((N-1))%${CONCURRENCY} "${PROJECT_DIR}/train_rws_triton_sub.sh" "${RUN_LIST}"
