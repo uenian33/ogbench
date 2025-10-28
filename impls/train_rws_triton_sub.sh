@@ -34,19 +34,25 @@ export XDG_CACHE_HOME="${PROJECT_DIR}/.cache"   # keep caches off $HOME
 mkdir -p "${OGBENCH_DATA_DIR}" "${PROJECT_DIR}/logs" "${XDG_CACHE_HOME}"
 
 
-# --- W&B (non-interactive) ---
+# ---------- Weights & Biases (non-interactive) ----------
 set -a
-source /scratch/work/yangw4/.secrets/wandb.env || true   # loads WANDB_* if present
+# Loads WANDB_API_KEY / WANDB_ENTITY / WANDB_PROJECT if present
+source /scratch/work/yangw4/.secrets/wandb.env || true
 set +a
-export WANDB_DIR="${PROJECT_DIR}/wandb"                  # keep logs off $HOME
+
+# Hard defaults if not provided; prevents 404 on a wrong team slug
+export WANDB_ENTITY="${WANDB_ENTITY:-wenyany94}"     # <- your user
+export WANDB_PROJECT="${WANDB_PROJECT:-ogbench-rws}"
+export WANDB_DIR="${PROJECT_DIR}/wandb"
 export WANDB_CACHE_DIR="${PROJECT_DIR}/.cache/wandb"
 mkdir -p "$WANDB_DIR" "$WANDB_CACHE_DIR"
 
-# If no key provided, fall back to offline so jobs still run
-if [[ -z "${WANDB_API_KEY:-}" ]]; then
-  export WANDB_MODE=offline
-fi
+# If no API key is loaded, run offline so training still proceeds
+[[ -z "${WANDB_API_KEY:-}" ]] && export WANDB_MODE=offline
 
+# (optional noise reduction)
+export WANDB_SILENT=true
+export WANDB__SERVICE_WAIT=300
 
 # --- Select task/discount from array index ---
 INDEX="${SLURM_ARRAY_TASK_ID:?array id missing}"
