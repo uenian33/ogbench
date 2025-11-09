@@ -10,6 +10,8 @@ from agents.td_rws import TDRWSAgent
 from agents.sac import SACAgent
 from agents.td_infonce import TDInfoNCEAgent
 from agents.expect_rws import ExpectileStepsAgent
+from agents.ota import OTAAgent
+
 agents = dict(
     crl=CRLAgent,
     gcbc=GCBCAgent,
@@ -22,5 +24,6 @@ agents = dict(
     sac=SACAgent,
     td_infonce=TDInfoNCEAgent,
     crl_infonce=CRLInfoNCEAgent,
-    expectile_steps=ExpectileStepsAgent
+    expectile_steps=ExpectileStepsAgent,
+    ota=OTAAgent
 )

@@ -665,7 +665,7 @@ class RWSAgent(flax.struct.PyTreeNode):
         pointmaze-large-navigate-v0 # 0.8
         pointmaze-giant-navigate-v0 # 0.8
         pointmaze-teleport-navigate-v0 # 0.99
-        pointmaze-medium-stitch-v0 # 0.99
+        pointmaze-medium-stitch-v0 # 0.9995
         pointmaze-large-stitch-v0 # 0.9999
         pointmaze-giant-stitch-v0 # 1
         pointmaze-teleport-stitch-v0 # 0.9999

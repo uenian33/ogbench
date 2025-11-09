@@ -140,6 +140,29 @@ class RunningMeanStd(flax.struct.PyTreeNode):
         return self.replace(mean=new_mean, var=new_var, count=total_count)
 
 
+class GCReachability(nn.Module):
+    """Single-layer reachability classifier for PU learning."""
+    
+    @nn.compact
+    def __call__(self, q_value):
+        """
+        Args:
+            q_value: Q-value(s) of shape [...] (any shape, typically batch)
+        Returns:
+            Reachability probability of shape [...]
+        """
+        # Ensure q_value has shape [..., 1] for the linear layer
+        q_value = jnp.expand_dims(q_value, axis=-1) if q_value.ndim == 1 else q_value
+        if q_value.shape[-1] != 1:
+            q_value = jnp.expand_dims(q_value, axis=-1)
+        
+        # Single linear layer + sigmoid
+        logits = nn.Dense(1, name='reach_logit')(q_value)
+        logits = jnp.squeeze(logits, axis=-1)
+        prob = nn.sigmoid(logits)
+        
+        return prob
+    
 class GCActor(nn.Module):
     """Goal-conditioned actor.
 

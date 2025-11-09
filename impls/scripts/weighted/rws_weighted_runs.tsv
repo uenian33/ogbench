@@ -1,0 +1,361 @@
+# Task	Agent	Seed	Alpha	Discount	RWSSubdir	RWSEpoch	ReachWeighting	ExtraArgs
+antmaze-giant-navigate-v0	gcivl	0	10.0	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gcivl	1	10.0	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gcivl	2	10.0	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gcivl	3	10.0	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gcivl	4	10.0	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gciql	0	0.3	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gciql	1	0.3	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gciql	2	0.3	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gciql	3	0.3	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	gciql	4	0.3	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	-
+antmaze-giant-navigate-v0	hiql	0	-	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-navigate-v0	hiql	1	-	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-navigate-v0	hiql	2	-	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-navigate-v0	hiql	3	-	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-navigate-v0	hiql	4	-	0.995	sd042_s_12899503.0.20251028_185615	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-stitch-v0	gcivl	0	10.0	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gcivl	1	10.0	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gcivl	2	10.0	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gcivl	3	10.0	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gcivl	4	10.0	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gciql	0	0.3	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gciql	1	0.3	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gciql	2	0.3	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gciql	3	0.3	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	gciql	4	0.3	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	-
+antmaze-giant-stitch-v0	hiql	0	-	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-stitch-v0	hiql	1	-	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-stitch-v0	hiql	2	-	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-stitch-v0	hiql	3	-	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-giant-stitch-v0	hiql	4	-	0.995	sd042_s_12899749.0.20251028_191603	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-explore-v0	gcivl	0	10.0	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gcivl	1	10.0	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gcivl	2	10.0	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gcivl	3	10.0	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gcivl	4	10.0	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gciql	0	0.01	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gciql	1	0.01	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gciql	2	0.01	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gciql	3	0.01	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	gciql	4	0.01	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	-
+antmaze-large-explore-v0	hiql	0	-	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-large-explore-v0	hiql	1	-	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-large-explore-v0	hiql	2	-	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-large-explore-v0	hiql	3	-	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-large-explore-v0	hiql	4	-	0.99	sd042_s_12900048.0.20251028_193305	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-large-navigate-v0	gcivl	0	10.0	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gcivl	1	10.0	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gcivl	2	10.0	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gcivl	3	10.0	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gcivl	4	10.0	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gciql	0	0.3	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gciql	1	0.3	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gciql	2	0.3	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gciql	3	0.3	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	gciql	4	0.3	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	-
+antmaze-large-navigate-v0	hiql	0	-	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-navigate-v0	hiql	1	-	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-navigate-v0	hiql	2	-	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-navigate-v0	hiql	3	-	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-navigate-v0	hiql	4	-	0.99	sd042_s_12899480.0.20251028_185404	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-stitch-v0	gcivl	0	10.0	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gcivl	1	10.0	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gcivl	2	10.0	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gcivl	3	10.0	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gcivl	4	10.0	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gciql	0	0.3	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gciql	1	0.3	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gciql	2	0.3	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gciql	3	0.3	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	gciql	4	0.3	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	-
+antmaze-large-stitch-v0	hiql	0	-	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-stitch-v0	hiql	1	-	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-stitch-v0	hiql	2	-	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-stitch-v0	hiql	3	-	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-large-stitch-v0	hiql	4	-	0.99	sd042_s_12899665.0.20251028_190125	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-explore-v0	gcivl	0	10.0	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gcivl	1	10.0	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gcivl	2	10.0	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gcivl	3	10.0	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gcivl	4	10.0	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gciql	0	0.01	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gciql	1	0.01	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gciql	2	0.01	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gciql	3	0.01	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	gciql	4	0.01	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	-
+antmaze-medium-explore-v0	hiql	0	-	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-medium-explore-v0	hiql	1	-	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-medium-explore-v0	hiql	2	-	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-medium-explore-v0	hiql	3	-	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-medium-explore-v0	hiql	4	-	0.99	sd042_s_12900041.0.20251028_193120	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-medium-navigate-v0	gcivl	0	10.0	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gcivl	1	10.0	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gcivl	2	10.0	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gcivl	3	10.0	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gcivl	4	10.0	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gciql	0	0.3	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gciql	1	0.3	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gciql	2	0.3	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gciql	3	0.3	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	gciql	4	0.3	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	-
+antmaze-medium-navigate-v0	hiql	0	-	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-navigate-v0	hiql	1	-	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-navigate-v0	hiql	2	-	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-navigate-v0	hiql	3	-	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-navigate-v0	hiql	4	-	0.99	sd042_s_12899477.0.20251028_185233	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-stitch-v0	gcivl	0	10.0	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gcivl	1	10.0	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gcivl	2	10.0	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gcivl	3	10.0	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gcivl	4	10.0	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gciql	0	0.3	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gciql	1	0.3	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gciql	2	0.3	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gciql	3	0.3	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	gciql	4	0.3	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	-
+antmaze-medium-stitch-v0	hiql	0	-	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-stitch-v0	hiql	1	-	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-stitch-v0	hiql	2	-	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-stitch-v0	hiql	3	-	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-medium-stitch-v0	hiql	4	-	0.99	sd042_s_12899656.0.20251028_190020	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-explore-v0	gcivl	0	10.0	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gcivl	1	10.0	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gcivl	2	10.0	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gcivl	3	10.0	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gcivl	4	10.0	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gciql	0	0.01	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gciql	1	0.01	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gciql	2	0.01	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gciql	3	0.01	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	gciql	4	0.01	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	-
+antmaze-teleport-explore-v0	hiql	0	-	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-teleport-explore-v0	hiql	1	-	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-teleport-explore-v0	hiql	2	-	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-teleport-explore-v0	hiql	3	-	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-teleport-explore-v0	hiql	4	-	0.99	sd042_s_12900050.0.20251028_193348	400000	adv	--agent.high_alpha=10.0 --agent.low_alpha=10.0
+antmaze-teleport-navigate-v0	gcivl	0	10.0	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gcivl	1	10.0	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gcivl	2	10.0	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gcivl	3	10.0	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gcivl	4	10.0	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gciql	0	0.3	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gciql	1	0.3	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gciql	2	0.3	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gciql	3	0.3	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	gciql	4	0.3	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	-
+antmaze-teleport-navigate-v0	hiql	0	-	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-navigate-v0	hiql	1	-	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-navigate-v0	hiql	2	-	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-navigate-v0	hiql	3	-	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-navigate-v0	hiql	4	-	0.99	sd042_s_12899556.0.20251028_185628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-stitch-v0	gcivl	0	10.0	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gcivl	1	10.0	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gcivl	2	10.0	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gcivl	3	10.0	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gcivl	4	10.0	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gciql	0	0.3	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gciql	1	0.3	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gciql	2	0.3	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gciql	3	0.3	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	gciql	4	0.3	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	-
+antmaze-teleport-stitch-v0	hiql	0	-	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-stitch-v0	hiql	1	-	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-stitch-v0	hiql	2	-	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-stitch-v0	hiql	3	-	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+antmaze-teleport-stitch-v0	hiql	4	-	0.99	sd042_s_12899961.0.20251028_192953	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+humanoidmaze-giant-navigate-v0	gcivl	0	10.0	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gcivl	1	10.0	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gcivl	2	10.0	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gcivl	3	10.0	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gcivl	4	10.0	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gciql	0	0.1	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gciql	1	0.1	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gciql	2	0.1	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gciql	3	0.1	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	gciql	4	0.1	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	-
+humanoidmaze-giant-navigate-v0	hiql	0	-	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-giant-navigate-v0	hiql	1	-	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-giant-navigate-v0	hiql	2	-	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-giant-navigate-v0	hiql	3	-	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-giant-navigate-v0	hiql	4	-	0.995	sd042_s_12900163.0.20251028_195115	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-navigate-v0	gcivl	0	10.0	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gcivl	1	10.0	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gcivl	2	10.0	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gcivl	3	10.0	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gcivl	4	10.0	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gciql	0	0.1	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gciql	1	0.1	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gciql	2	0.1	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gciql	3	0.1	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	gciql	4	0.1	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	-
+humanoidmaze-large-navigate-v0	hiql	0	-	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-navigate-v0	hiql	1	-	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-navigate-v0	hiql	2	-	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-navigate-v0	hiql	3	-	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-navigate-v0	hiql	4	-	0.995	sd042_s_12900070.0.20251028_193712	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-stitch-v0	gcivl	0	10.0	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gcivl	1	10.0	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gcivl	2	10.0	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gcivl	3	10.0	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gcivl	4	10.0	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gciql	0	0.1	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gciql	1	0.1	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gciql	2	0.1	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gciql	3	0.1	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	gciql	4	0.1	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	-
+humanoidmaze-large-stitch-v0	hiql	0	-	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-stitch-v0	hiql	1	-	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-stitch-v0	hiql	2	-	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-stitch-v0	hiql	3	-	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-large-stitch-v0	hiql	4	-	0.995	sd042_s_12900260.0.20251028_201003	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-navigate-v0	gcivl	0	10.0	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gcivl	1	10.0	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gcivl	2	10.0	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gcivl	3	10.0	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gcivl	4	10.0	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gciql	0	0.1	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gciql	1	0.1	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gciql	2	0.1	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gciql	3	0.1	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	gciql	4	0.1	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	-
+humanoidmaze-medium-navigate-v0	hiql	0	-	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-navigate-v0	hiql	1	-	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-navigate-v0	hiql	2	-	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-navigate-v0	hiql	3	-	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-navigate-v0	hiql	4	-	0.995	sd042_s_12900064.0.20251028_193628	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-stitch-v0	gcivl	0	10.0	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gcivl	1	10.0	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gcivl	2	10.0	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gcivl	3	10.0	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gcivl	4	10.0	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gciql	0	0.1	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gciql	1	0.1	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gciql	2	0.1	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gciql	3	0.1	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	gciql	4	0.1	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	-
+humanoidmaze-medium-stitch-v0	hiql	0	-	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-stitch-v0	hiql	1	-	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-stitch-v0	hiql	2	-	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-stitch-v0	hiql	3	-	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+humanoidmaze-medium-stitch-v0	hiql	4	-	0.995	sd042_s_12900220.0.20251028_200549	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=100
+pointmaze-giant-navigate-v0	gcivl	0	10.0	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gcivl	1	10.0	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gcivl	2	10.0	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gcivl	3	10.0	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gcivl	4	10.0	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gciql	0	0.003	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gciql	1	0.003	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gciql	2	0.003	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gciql	3	0.003	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	gciql	4	0.003	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	-
+pointmaze-giant-navigate-v0	hiql	0	-	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-navigate-v0	hiql	1	-	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-navigate-v0	hiql	2	-	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-navigate-v0	hiql	3	-	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-navigate-v0	hiql	4	-	0.995	sd042_s_12898330.0.20251028_182528	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-stitch-v0	gcivl	0	10.0	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gcivl	1	10.0	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gcivl	2	10.0	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gcivl	3	10.0	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gcivl	4	10.0	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gciql	0	0.003	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gciql	1	0.003	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gciql	2	0.003	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gciql	3	0.003	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	gciql	4	0.003	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	-
+pointmaze-giant-stitch-v0	hiql	0	-	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-stitch-v0	hiql	1	-	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-stitch-v0	hiql	2	-	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-stitch-v0	hiql	3	-	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-giant-stitch-v0	hiql	4	-	0.995	sd042_s_12898334.0.20251028_182534	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-navigate-v0	gcivl	0	10.0	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gcivl	1	10.0	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gcivl	2	10.0	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gcivl	3	10.0	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gcivl	4	10.0	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gciql	0	0.003	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gciql	1	0.003	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gciql	2	0.003	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gciql	3	0.003	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	gciql	4	0.003	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	-
+pointmaze-large-navigate-v0	hiql	0	-	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-navigate-v0	hiql	1	-	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-navigate-v0	hiql	2	-	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-navigate-v0	hiql	3	-	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-navigate-v0	hiql	4	-	0.99	sd042_s_12898329.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-stitch-v0	gcivl	0	10.0	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gcivl	1	10.0	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gcivl	2	10.0	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gcivl	3	10.0	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gcivl	4	10.0	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gciql	0	0.003	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gciql	1	0.003	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gciql	2	0.003	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gciql	3	0.003	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	gciql	4	0.003	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	-
+pointmaze-large-stitch-v0	hiql	0	-	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-stitch-v0	hiql	1	-	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-stitch-v0	hiql	2	-	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-stitch-v0	hiql	3	-	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-large-stitch-v0	hiql	4	-	0.99	sd042_s_12898333.0.20251028_182531	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-navigate-v0	gcivl	0	10.0	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gcivl	1	10.0	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gcivl	2	10.0	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gcivl	3	10.0	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gcivl	4	10.0	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gciql	0	0.003	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gciql	1	0.003	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gciql	2	0.003	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gciql	3	0.003	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	gciql	4	0.003	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	-
+pointmaze-medium-navigate-v0	hiql	0	-	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-navigate-v0	hiql	1	-	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-navigate-v0	hiql	2	-	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-navigate-v0	hiql	3	-	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-navigate-v0	hiql	4	-	0.99	sd042_s_12898328.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-stitch-v0	gcivl	0	10.0	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gcivl	1	10.0	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gcivl	2	10.0	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gcivl	3	10.0	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gcivl	4	10.0	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gciql	0	0.003	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gciql	1	0.003	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gciql	2	0.003	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gciql	3	0.003	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	gciql	4	0.003	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	-
+pointmaze-medium-stitch-v0	hiql	0	-	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-stitch-v0	hiql	1	-	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-stitch-v0	hiql	2	-	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-stitch-v0	hiql	3	-	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-medium-stitch-v0	hiql	4	-	0.99	sd042_s_12898332.0.20251028_182530	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-navigate-v0	gcivl	0	10.0	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gcivl	1	10.0	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gcivl	2	10.0	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gcivl	3	10.0	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gcivl	4	10.0	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gciql	0	0.003	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gciql	1	0.003	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gciql	2	0.003	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gciql	3	0.003	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	gciql	4	0.003	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	-
+pointmaze-teleport-navigate-v0	hiql	0	-	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-navigate-v0	hiql	1	-	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-navigate-v0	hiql	2	-	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-navigate-v0	hiql	3	-	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-navigate-v0	hiql	4	-	0.99	sd042_s_12898331.0.20251028_182547	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-stitch-v0	gcivl	0	10.0	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gcivl	1	10.0	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gcivl	2	10.0	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gcivl	3	10.0	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gcivl	4	10.0	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gciql	0	0.003	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gciql	1	0.003	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gciql	2	0.003	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gciql	3	0.003	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	gciql	4	0.003	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	-
+pointmaze-teleport-stitch-v0	hiql	0	-	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-stitch-v0	hiql	1	-	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-stitch-v0	hiql	2	-	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-stitch-v0	hiql	3	-	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0
+pointmaze-teleport-stitch-v0	hiql	4	-	0.99	sd042_s_12898979.0.20251028_184524	400000	adv	--agent.high_alpha=3.0 --agent.low_alpha=3.0

@@ -217,13 +217,22 @@ class RWSAgent(flax.struct.PyTreeNode):
             params=grad_params
         )
         pred_unl = jnp.squeeze(pred_unl, axis=-1).reshape(B, K)   # [B, K]
-
+        '''
         # === Pairwise ranking loss: positives vs ALL unlabeled (prior-free, margin-based) ===
         # logits_ij = f(s_i, g^+_i) - f(s_i, g~_{i,j}) - margin
         pos_exp = jnp.expand_dims(pred_pos, 1)           # [B, 1]
         rank_logits = pos_exp - pred_unl - margin        # [B, K]
         # logistic pairwise loss: log(1 + exp(-logit))
         rank_loss = jnp.mean(jax.nn.softplus(-rank_logits))
+        '''
+
+        # Positive examples: want sigmoid(pred_pos) ≈ 1
+        pos_bce = jnp.mean(jax.nn.softplus(-pred_pos))
+
+        # Negative examples: want sigmoid(pred_unl) ≈ 0
+        neg_bce = jnp.mean(jax.nn.softplus(pred_unl))
+
+        rank_loss = pos_bce + neg_bce
 
         # === TD-style monotone inequality against target net (no Q): f(s, g) >= max_m [gamma^m * f_bar(s_mid^m, g)] ===
         # 1) Positives: compute target on skip states for each (s_i, g^+_i), weight by gamma^m, then max over M
@@ -234,9 +243,9 @@ class RWSAgent(flax.struct.PyTreeNode):
         target_pos_all = jnp.squeeze(target_pos_all, axis=-1).reshape(B, M)             # [B, M]
         
         # Apply gamma weighting to each skip state
-        target_pos_all_weighted = target_pos_all * gamma_weights  # [B, M]
+        target_pos_all_weighted = target_pos_all #* gamma_weights  # [B, M]
         target_pos_max = jnp.max(target_pos_all_weighted, axis=1)  # [B]
-
+        
         # Monotone penalty for positives: relu(target_max - current)
         mono_pos = jax.nn.relu(jax.lax.stop_gradient(target_pos_max) - pred_pos) # [B]
         mono_pos = jnp.mean(mono_pos)
@@ -255,16 +264,16 @@ class RWSAgent(flax.struct.PyTreeNode):
         target_unl_all = jnp.squeeze(target_unl_all, axis=-1).reshape(B, M, K)             # [B, M, K]
         
         # Apply gamma weighting to each skip state
-        target_unl_all_weighted = target_unl_all * gamma_weights.reshape(1, M, 1)  # [B, M, K]
+        target_unl_all_weighted = target_unl_all #* gamma_weights.reshape(1, M, 1)  # [B, M, K]
         target_unl_max = jnp.max(target_unl_all_weighted, axis=1)  # [B, K]
-
+        
         # Monotone penalty for unlabeled
         pred_unl_exp = jnp.expand_dims(pred_unl, 1)  # [B, 1, K] for broadcasting
         mono_unl = jax.nn.relu(jax.lax.stop_gradient(target_unl_max) - pred_unl)  # [B, K]
         mono_unl = jnp.mean(mono_unl)
 
         # === Combine losses ===
-        total_loss = rank_loss + lambda_mono * (mono_pos + mono_unl)
+        total_loss = rank_loss + lambda_mono *  mono_unl
 
         info = {
             'loss': total_loss,

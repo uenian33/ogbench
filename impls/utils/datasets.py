@@ -488,6 +488,7 @@ class GCDataset:
         return jax.tree_util.tree_map(lambda *args: np.concatenate(args, axis=-1), *rets)
 
 
+
 @dataclasses.dataclass
 class HGCDataset(GCDataset):
     """Dataset class for hierarchical goal-conditioned RL.
@@ -496,6 +497,41 @@ class HGCDataset(GCDataset):
     additional key from the config:
     - subgoal_steps: Subgoal steps (i.e., the number of steps to reach the low-level goal).
     """
+
+    def sample_high_goals(self, idxs, p_curgoal, p_trajgoal, p_randomgoal, geom_sample):
+        """Sample high-level goals for the given indices."""
+        batch_size = len(idxs)
+
+        # Random goals.
+        random_goal_idxs = self.dataset.get_random_idxs(batch_size)
+
+        # Goals from the same trajectory (excluding the current state, unless it is the final state).
+        final_state_idxs = self.terminal_locs[np.searchsorted(self.terminal_locs, idxs)]
+        if geom_sample:
+            # Geometric sampling.
+            offsets = np.random.geometric(p=1 - self.config['discount'], size=batch_size)  # in [1, inf)
+            traj_goal_idxs = np.minimum(idxs + offsets, final_state_idxs)
+        else:
+            # Uniform sampling.
+            distances = np.random.rand(batch_size)  # in [0, 1)
+            traj_goal_idxs = np.round(
+                (np.minimum(idxs + 1, final_state_idxs) * distances + final_state_idxs * (1 - distances))
+            ).astype(int)
+
+        # whether to sample from trajectory
+        traj_masks = np.random.rand(batch_size) < p_trajgoal / (1.0 - p_curgoal + 1e-6)
+        
+        original_subgoal_idxs = np.minimum(idxs + self.config['abstraction_factor'], final_state_idxs) # timeout-based termination
+        option_subgoal_idxs = np.minimum(idxs + self.config['abstraction_factor'], traj_goal_idxs) # reaching goal-based termination
+        high_value_option_idxs = np.where(traj_masks, option_subgoal_idxs, original_subgoal_idxs) # s^\Omega
+
+        # choose traj_goal_idxs with probability p_trajgoal, and random_goal_idxs with probability p_randomgoal
+        goal_idxs = np.where(traj_masks, traj_goal_idxs, random_goal_idxs)
+        cur_masks = np.random.rand(batch_size) < p_curgoal
+        high_value_goal_idxs = np.where(cur_masks, high_value_option_idxs, goal_idxs)
+
+        return high_value_goal_idxs, high_value_option_idxs
+
 
     def sample(self, batch_size, idxs=None, evaluation=False):
         """Sample a batch of transitions with goals.
@@ -516,6 +552,21 @@ class HGCDataset(GCDataset):
         if self.config['frame_stack'] is not None:
             batch['observations'] = self.get_observations(idxs)
             batch['next_observations'] = self.get_observations(idxs + 1)
+
+        # Sample high-level goals for value function.
+        if self.config['agent_name'] == 'ota':
+            high_value_goal_idxs, high_value_option_idxs = self.sample_high_goals(
+                idxs,
+                self.config['value_p_curgoal'], 
+                self.config['value_p_trajgoal'],
+                self.config['value_p_randomgoal'],
+                self.config['value_geom_sample'],
+            )
+            batch['high_value_goals'] = self.get_observations(high_value_goal_idxs)
+            batch['high_value_option_observations'] = self.get_observations(high_value_option_idxs)
+            high_value_success = (high_value_option_idxs == high_value_goal_idxs).astype(float)
+            batch['high_value_masks'] = 1.0 - high_value_success
+            batch['high_value_rewards'] = high_value_success - (1.0 if self.config['gc_negative'] else 0.0)
 
         # Sample value goals.
         value_goal_idxs = self.sample_goals(

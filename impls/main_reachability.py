@@ -50,7 +50,7 @@ flags.DEFINE_boolean('compact_ogbench', False, 'Use compact OGBench dataset.')
 flags.DEFINE_string('maze_buffer', 'env/A_star_buffer.pkl', 'Path to maze buffer.')
 
 # Training settings
-flags.DEFINE_integer('train_steps', 1000000, 'Number of training steps.')
+flags.DEFINE_integer('train_steps', 400000, 'Number of training steps.')
 flags.DEFINE_integer('steps_per_epoch', 0, 'Steps per epoch (0 = auto).')
 flags.DEFINE_integer('log_interval', 5000, 'Logging interval.')
 flags.DEFINE_integer('viz_interval', 100000, 'Visualization interval.')
